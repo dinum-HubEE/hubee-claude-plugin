@@ -1,0 +1,22 @@
+{
+  "name": "hubee-claude-plugin",
+  "description": "Plugin Claude Code partagé pour les projets HubEE : skills, rules, hooks et agents communs (Rails, Java, legacy)",
+  "version": "0.1.0",
+  "author": {
+    "name": "DINUM HubEE"
+  },
+  "repository": "https://gitlab.hubee.numerique.gouv.fr/hubee/hubee-claude-plugin",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "claude-skill",
+    "model-invoked",
+    "hubee",
+    "rails",
+    "tdd",
+    "rspec",
+    "keycloak",
+    "gitlab",
+    "dinum"
+  ]
+}
