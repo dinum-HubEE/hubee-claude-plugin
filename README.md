@@ -4,17 +4,22 @@ Plugin Claude Code partagé pour les projets HubEE.
 
 ## Installation
 
-Ajouter à `~/.claude/settings.json` (user-scope) ou `<projet>/.claude/settings.json` (projet) :
+```bash
+claude plugin marketplace add dinum-HubEE/hubee-claude-plugin
+claude plugin install hubee-claude-plugin@hubee-claude-plugin
+```
+
+Puis activer dans `<projet>/.claude/settings.json` :
 
 ```json
 {
   "enabledPlugins": {
-    "hubee-claude-plugin@gitlab.hubee.numerique.gouv.fr/hubee/hubee-claude-plugin": true
+    "hubee-claude-plugin@hubee-claude-plugin": true
   }
 }
 ```
 
-L'installation est automatisée pour les devs HubEE via le repo [`hubee-agent-vm-config`](https://gitlab.hubee.numerique.gouv.fr/hubee/hubee-agent-vm-config) (`setup.sh`).
+L'installation est automatisée pour les devs HubEE via le repo [`hubee-agent-vm-config`](https://gitlab.hubee.numerique.gouv.fr/hubee/hubee-agent-vm-config) (`setup.sh`) — le plugin est installé une fois, à `agent-vm setup`.
 
 > Plugin interne : pas de versionning ni de tag — la branche `main` est la version courante.
 

@@ -5,7 +5,7 @@
   "author": {
     "name": "DINUM HubEE"
   },
-  "repository": "https://gitlab.hubee.numerique.gouv.fr/hubee/hubee-claude-plugin",
+  "repository": "https://github.com/dinum-HubEE/hubee-claude-plugin",
   "license": "MIT",
   "keywords": [
     "claude-code",
