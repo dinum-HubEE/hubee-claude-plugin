@@ -1,2 +1,3 @@
-# Messages de commit temporaires (handoff Claude → dev via `git commit -F`)
+# Handoff Claude → dev pour `git commit` (cf. skill commit du plugin)
 .commit-msg*.tmp
+.commit-files*.tmp

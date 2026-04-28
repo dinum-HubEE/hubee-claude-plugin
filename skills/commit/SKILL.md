@@ -164,13 +164,23 @@ Refs: #228
 
 **Étape 2 — commande mono-ligne pour le dev** :
 
+**Cas A — peu de fichiers (≤ 10)** : énumérer en arguments.
+
 ```bash
 git add app/controllers/subscriptions_controller.rb spec/requests/subscriptions_spec.rb config/routes.rb && git commit -F .commit-msg.tmp && rm .commit-msg.tmp
 ```
 
-Cette commande tient sur **une seule ligne** (peu importe la longueur visuelle dans le chat — pas de `\n` interprété par le terminal au paste). Le `&&` enchaîne stage → commit → cleanup ; si une étape plante, les suivantes ne tournent pas.
+**Cas B — beaucoup de fichiers (> 10) ou chemins avec espaces/accents** : passer la liste via fichier avec `git add --pathspec-from-file=`. Écrire les chemins (un par ligne) dans `.commit-files.tmp` via le tool `Write`, puis :
 
-**Pour les fichiers en grand nombre**, préférer un `git add` ciblé en plusieurs arguments (toujours sur la même ligne) plutôt que `git add .` qui risque d'inclure du bruit.
+```bash
+git add --pathspec-from-file=.commit-files.tmp && git commit -F .commit-msg.tmp && rm .commit-files.tmp .commit-msg.tmp
+```
+
+Toujours **une seule ligne** sur le host, peu importe le nombre de fichiers. Pas d'escaping des chemins. Requiert Git ≥ 2.25.
+
+**Cas C — éviter `git add .` ou `git add -A`** : risque d'inclure secrets / binaires / fichiers non intentionnels. Préférer A ou B.
+
+Le `&&` enchaîne stage → commit → cleanup ; si une étape plante, les suivantes ne tournent pas (les fichiers `.tmp` restent → permet de débugger sans réécrire le message).
 
 **Multi-commits dans la même session** : nommer les fichiers `.commit-msg-1.tmp`, `.commit-msg-2.tmp`, etc., et donner les commandes l'une après l'autre. Le dev les exécute en séquence.
 
