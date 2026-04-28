@@ -13,9 +13,9 @@ Pour les devs HubEE qui utilisent [`hubee-agent-vm-config`](https://gitlab.hubee
 
 ## Mise à jour
 
-Mécanisme valable pour les 4 plugins HubEE (`hubee-claude-plugin`, `superpowers@claude-plugins-official`, `dsfr-skill@dsfr-skill`, `claude-hud@claude-hud`). Trois niveaux selon ton besoin :
+Mécanisme valable pour les 4 plugins HubEE (`hubee-claude-plugin`, `superpowers@claude-plugins-official`, `dsfr-skill@dsfr-skill`, `claude-hud@claude-hud`). Deux moyens de récupérer une nouvelle version :
 
-**1. Session ouverte (le plus rapide)** — depuis Claude dans la VM :
+**1. En session (le plus rapide)** — depuis Claude dans la VM :
 
 ```bash
 claude plugin marketplace update                        # rafraîchit tous les marketplaces
@@ -23,7 +23,7 @@ claude plugin update hubee-claude-plugin@hubee-claude-plugin
 /exit
 ```
 
-Puis relancer `agent-vm --git-ro claude`. La 1ʳᵉ commande est obligatoire (sans elle la 2ᵉ ne voit pas les nouveaux commits). Le `/exit` est obligatoire — les skills ne se rechargent pas à chaud.
+Puis relancer `agent-vm --git-ro claude`. La 1ʳᵉ commande est obligatoire (sans elle la 2ᵉ ne voit pas les nouveaux commits). Le `/exit` est obligatoire — les skills ne se rechargent pas à chaud. Cette mise à jour est **locale à la VM courante** et perdue si tu fais `agent-vm rm` ensuite.
 
 Pour mettre à jour **tous** les plugins en un coup :
 
@@ -36,22 +36,15 @@ claude plugin update claude-hud@claude-hud
 /exit
 ```
 
-**2. Recréer la VM courante** :
-
-```bash
-agent-vm rm
-agent-vm --git-ro claude
-```
-
-Détruit la VM du projet et la reconstruit depuis le template Lima local. Plus lourd mais sûr.
-
-**3. Re-baker le template Lima (toutes les futures VMs)** :
+**2. Re-baker le template Lima (persistant)** :
 
 ```bash
 cd ~/.agent-vm && git pull && agent-vm setup
 ```
 
-5-10 min, à faire 1× par mois ou si la config agent-vm partagée a changé. Toutes les VMs créées ensuite auront la dernière version baked-in.
+5-10 min, à faire 1× par mois ou si la config agent-vm partagée a changé. Toutes les VMs créées ensuite auront la dernière version baked-in. **C'est le seul moyen de propager durablement une mise à jour à toutes tes VMs**.
+
+> ⚠️ `agent-vm rm` puis relance ne met **pas** à jour les plugins — la VM est recréée depuis le template Lima local (celui du dernier `agent-vm setup`). Utile pour repartir sur une VM propre, mais reprend la version des plugins figée à la bake. Pour mettre à jour, c'est option 1 ou option 2.
 
 ## Activation côté projet
 
