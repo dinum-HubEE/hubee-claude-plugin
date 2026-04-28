@@ -1,0 +1,2 @@
+# Messages de commit temporaires (handoff Claude → dev via `git commit -F`)
+.commit-msg*.tmp
