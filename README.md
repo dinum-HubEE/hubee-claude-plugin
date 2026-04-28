@@ -13,38 +13,36 @@ Pour les devs HubEE qui utilisent [`hubee-agent-vm-config`](https://gitlab.hubee
 
 ## Mise à jour
 
-Mécanisme valable pour les 4 plugins HubEE (`hubee-claude-plugin`, `superpowers@claude-plugins-official`, `dsfr-skill@dsfr-skill`, `claude-hud@claude-hud`). Deux moyens de récupérer une nouvelle version :
+Les 4 plugins HubEE (`hubee-claude-plugin`, `superpowers@claude-plugins-official`, `dsfr-skill@dsfr-skill`, `claude-hud@claude-hud`) sont mis à jour **automatiquement à chaque `agent-vm claude`**. Aucune action manuelle nécessaire.
 
-**1. En session (le plus rapide)** — depuis Claude dans la VM :
+Le mécanisme : à chaque lancement, la VM exécute en best-effort :
 
 ```bash
-claude plugin marketplace update                        # rafraîchit tous les marketplaces
-claude plugin update hubee-claude-plugin@hubee-claude-plugin
-/exit
+claude plugin update claude-hud@claude-hud                   2>/dev/null || true
+claude plugin update superpowers@claude-plugins-official     2>/dev/null || true
+claude plugin update dsfr-skill@dsfr-skill                   2>/dev/null || true
+claude plugin update hubee-claude-plugin@hubee-claude-plugin 2>/dev/null || true
 ```
 
-Puis relancer `agent-vm --git-ro claude`. La 1ʳᵉ commande est obligatoire (sans elle la 2ᵉ ne voit pas les nouveaux commits). Le `/exit` est obligatoire — les skills ne se rechargent pas à chaud. Cette mise à jour est **locale à la VM courante** et perdue si tu fais `agent-vm rm` ensuite.
+(défini dans [`hubee-agent-vm-config`](https://gitlab.hubee.numerique.gouv.fr/hubee/hubee-agent-vm-config))
 
-Pour mettre à jour **tous** les plugins en un coup :
+Si tu veux forcer un refresh **en cours de session** (sans attendre le prochain lancement) :
 
-```bash
+```
 claude plugin marketplace update
 claude plugin update hubee-claude-plugin@hubee-claude-plugin
-claude plugin update superpowers@claude-plugins-official
-claude plugin update dsfr-skill@dsfr-skill
-claude plugin update claude-hud@claude-hud
 /exit
 ```
 
-**2. Re-baker le template Lima (persistant)** :
+Puis relancer `agent-vm --git-ro claude`. Le `/exit` est obligatoire — les skills ne se rechargent pas à chaud.
+
+**Re-baker le template Lima** (optionnel, ~1× par mois ou si `hubee-agent-vm-config` a changé) :
 
 ```bash
 cd ~/.agent-vm && git pull && agent-vm setup
 ```
 
-5-10 min, à faire 1× par mois ou si la config agent-vm partagée a changé. Toutes les VMs créées ensuite auront la dernière version baked-in. **C'est le seul moyen de propager durablement une mise à jour à toutes tes VMs**.
-
-> ⚠️ `agent-vm rm` puis relance ne met **pas** à jour les plugins — la VM est recréée depuis le template Lima local (celui du dernier `agent-vm setup`). Utile pour repartir sur une VM propre, mais reprend la version des plugins figée à la bake. Pour mettre à jour, c'est option 1 ou option 2.
+5-10 min. Embarque dans le template Lima les dernières versions des plugins + la dernière config partagée. Sans rebake, l'auto-update au lancement rattrape immédiatement n'importe quelle VM (y compris après `agent-vm rm`).
 
 ## Activation côté projet
 
@@ -95,3 +93,15 @@ Dans `<projet>/.claude/settings.json` :
 - Override de superpowers par référence (pas de fork — quand superpowers évolue, on en hérite)
 - Pas de commande slash (skills-first, déclenchement par description)
 - TDD obligatoire sur le code Rails
+
+## Publier un changement
+
+Toute modif du plugin (skill, rule, hook, agent) **doit** s'accompagner d'un bump de version :
+
+1. **Bump `version`** dans `.claude-plugin/plugin.json` **ET** dans `.claude-plugin/marketplace.json` (champ `metadata.version` + `plugins[0].version`). Garder les 3 valeurs strictement identiques.
+2. Commit + push sur `main`. Sans bump, `claude plugin update` côté dev ne détecte pas de nouvelle version → l'auto-update au lancement de la VM est silencieusement no-op.
+
+Versionnage : SemVer.
+- Patch (0.X.Y → 0.X.Y+1) : fix sur une skill/rule/hook existante.
+- Minor (0.X.Y → 0.X+1.0) : nouvelle skill/rule/hook/agent, ou enrichissement notable.
+- Major : changement breaking (skill renommée/supprimée, hook qui change de comportement par défaut).
