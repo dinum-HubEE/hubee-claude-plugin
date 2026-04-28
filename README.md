@@ -41,6 +41,7 @@ Dans `<projet>/.claude/settings.json` :
 | `explore-rails` | Naviguer un projet Rails route → controller → service → model → view |
 | `finishing-branch` | Finaliser une branche, préparer la MR GitLab (override `superpowers:finishing-a-development-branch`) |
 | `gitlab` | Lire issues/MR/board/fichiers de l'instance HubEE GitLab via `glab` |
+| `hubee-recap` | Résumé mensuel des MR/PR mergées sur HubEE (GitLab interne + GitHub publics), avec « Évolutions notables » par thème |
 | `hotwire` | Turbo Frames/Streams, Stimulus controllers |
 | `plan` | Rédiger un plan d'implémentation (override `superpowers:writing-plans`) |
 | `rails-patterns` | Models, controllers, services, queries Rails |
