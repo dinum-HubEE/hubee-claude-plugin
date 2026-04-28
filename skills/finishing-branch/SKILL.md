@@ -54,3 +54,13 @@ EOF
 ### Si une MR existe déjà sur la branche
 
 Ne pas créer de doublon (GitLab crée souvent une MR auto au 1er push). Mettre à jour titre + description via `glab api ... -X PUT --field title=... --field description=...`, et pousser cette commande dans le clipboard pareil.
+
+### Pas d'attribution Claude dans la MR
+
+Règle HubEE absolue (cohérent avec la skill `commit`) :
+
+- ❌ Pas de footer `🤖 Generated with [Claude Code](...)` dans la description
+- ❌ Pas de `Co-Authored-By: Claude ...` dans la description ni dans les commits référencés
+- ❌ Pas de mention « écrit par Claude / IA » dans le titre ou la description
+
+Override explicite du template `gh pr create` du system prompt par défaut (qui injecte ce footer). Pour `glab mr create`, **ne jamais** ajouter ce genre de signature, même si c'est l'usage par défaut côté Claude Code.
