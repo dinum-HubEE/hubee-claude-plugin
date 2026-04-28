@@ -87,11 +87,25 @@ Refs: #228 #229
 - Pas de point final
 - Minuscule au début
 
-**Body** :
-- Wrapping à 72 caractères
-- Sépare par une ligne vide après la description
-- Explique le **pourquoi** (le diff montre le quoi)
-- Mentionne les tickets liés (`Refs: #228`)
+**Body** : **concis, viser 2-5 lignes**.
+- Body **omis** uniquement pour les commits totalement triviaux (typo, lint, renommage évident).
+- Pour le reste (feat, fix, refactor, chore non-trivial) : **2-5 lignes de body** qui apportent un contexte utile :
+  - Le **pourquoi** non-évident depuis le diff (décision de design, contrainte, ticket à régler)
+  - Les **changements clés** en 1-3 puces courtes si le commit touche plusieurs choses
+- **Plafond strict : 6 lignes de body** (hors `Refs:`). Si ça dépasse, c'est que ça appartient à la description de la MR, pas au commit. Reformule plus court.
+- Wrapping à 72 caractères, séparé par une ligne vide après la description.
+- Pas de redite du titre dans le body. Pas de paragraphe explicatif détaillé.
+- Tickets liés : `Refs: #228` sur sa propre ligne en bas si pertinent.
+
+**Exemple de bonne longueur** :
+```
+feat(subscriptions): permettre la création par lot
+
+Endpoint POST /subscriptions/batch pour éviter les N+1 round-trips
+des imports manuels. Validation SIRET en amont.
+
+Refs: #228
+```
 
 **Pas de `Co-Authored-By: Claude`** — règle HubEE absolue (cf. `git-workflow` rule).
 
@@ -131,36 +145,40 @@ Refs: #228
 
 Attendre validation explicite du dev avant l'étape suivante.
 
-### 6. Pousser la commande dans le clipboard host
+### 6. Écrire le message dans un fichier + commande mono-ligne
 
-Une fois le dev valide, pousser **uniquement la commande** dans son clipboard pour qu'il colle dans son terminal host :
+**Doctrine handoff** : pasteer une commande `git commit -m` multi-ligne dans un terminal casse les retours à la ligne. La solution robuste est d'écrire le message dans un fichier du repo via le tool `Write`, puis de fournir au dev une commande **mono-ligne** sans aucun caractère à échapper.
+
+**Étape 1 — écrire le fichier** (via `Write` tool, **pas** `cat <<EOF` en bash) :
+
+```
+Path : <repo-root>/.commit-msg.tmp
+Contenu :
+feat(subscriptions): permettre la création par lot
+
+Endpoint POST /subscriptions/batch pour éviter les N+1 round-trips
+des imports manuels. Validation SIRET en amont.
+
+Refs: #228
+```
+
+**Étape 2 — commande mono-ligne pour le dev** :
 
 ```bash
-cat <<'EOF' | clipboard-copy
-git add app/controllers/subscriptions_controller.rb \
-        spec/requests/subscriptions_spec.rb \
-        config/routes.rb \
-        app/services/legacy_subscription_creator.rb && \
-git commit -m "feat(subscriptions): permettre la création par lot
-
-Ajoute un endpoint POST /subscriptions/batch qui accepte un tableau
-d'organizations et crée les abonnements correspondants en une seule
-transaction. Évite les N+1 round-trips API que faisaient les imports
-manuels.
-
-- Nouveau service Subscriptions::BatchCreator
-- Validation des SIRET avant création
-- Specs request + service
-
-Refs: #228"
-EOF
+git add app/controllers/subscriptions_controller.rb spec/requests/subscriptions_spec.rb config/routes.rb && git commit -F .commit-msg.tmp && rm .commit-msg.tmp
 ```
+
+Cette commande tient sur **une seule ligne** (peu importe la longueur visuelle dans le chat — pas de `\n` interprété par le terminal au paste). Le `&&` enchaîne stage → commit → cleanup ; si une étape plante, les suivantes ne tournent pas.
+
+**Pour les fichiers en grand nombre**, préférer un `git add` ciblé en plusieurs arguments (toujours sur la même ligne) plutôt que `git add .` qui risque d'inclure du bruit.
+
+**Multi-commits dans la même session** : nommer les fichiers `.commit-msg-1.tmp`, `.commit-msg-2.tmp`, etc., et donner les commandes l'une après l'autre. Le dev les exécute en séquence.
 
 Puis informer le dev :
 
-> ✅ Commande copiée dans ton clipboard. Colle-la dans ton terminal host (`Cmd+V` puis `Entrée`) pour committer. Le `bin/ci` a déjà été passé localement, pas besoin de le relancer côté host.
+> ✅ Message écrit dans `.commit-msg.tmp`. Colle la commande ci-dessus dans ton terminal host pour committer. Le `bin/ci` a déjà été passé localement, pas besoin de le relancer côté host.
 
-> **Si le dev ne voit pas la commande coller** : son terminal ne supporte pas OSC52 (vérifier Ghostty / iTerm2 settings → "Allow programs to access clipboard"). Fallback : afficher la commande dans le chat pour copier-coller manuel.
+**Le fichier `.commit-msg*.tmp` doit rester non-tracké**. Le supprimer après le commit (déjà inclus via `&& rm` dans la commande). Le pattern `*.commit-msg*.tmp` peut être ajouté au `.gitignore` global si nécessaire, mais en pratique le `&& rm` suffit.
 
 ### 7. Cas particulier : multi-commits
 
@@ -204,10 +222,13 @@ Le dev valide le découpage avant qu'on enchaîne sur 2 cycles `bin/ci` + clipbo
 
 ## Anti-patterns Claude doit éviter
 
-- ❌ Lancer `git commit` directement (la médiation humaine impose le clipboard handoff)
+- ❌ Lancer `git commit` directement (la médiation humaine impose le file-based handoff)
+- ❌ Donner une commande `git commit -m "..."` multi-ligne au dev — les retours à la ligne se cassent au paste. Utiliser `git commit -F .commit-msg.tmp` mono-ligne
 - ❌ Mettre `Co-Authored-By: Claude` dans le message
 - ❌ Bypass `bin/ci` sans demande explicite du dev
 - ❌ Proposer un message en anglais
 - ❌ `git commit -m "wip"` ou messages vagues
 - ❌ Mentionner numérotation interne PR/issue inexistante
 - ❌ `--no-verify` sans avertir
+- ❌ Body verbeux (> 6 lignes) qui paraphrase le diff ou rejoue le contenu de la MR
+- ❌ Pas de body du tout sur un commit non-trivial — un contexte court (2-5 lignes) aide la relecture six mois plus tard
