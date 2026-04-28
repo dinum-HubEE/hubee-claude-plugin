@@ -11,6 +11,48 @@ claude plugin install hubee-claude-plugin@hubee-claude-plugin
 
 Pour les devs HubEE qui utilisent [`hubee-agent-vm-config`](https://gitlab.hubee.numerique.gouv.fr/hubee/hubee-agent-vm-config), c'est automatique au `agent-vm setup`.
 
+## Mise à jour
+
+Mécanisme valable pour les 4 plugins HubEE (`hubee-claude-plugin`, `superpowers@claude-plugins-official`, `dsfr-skill@dsfr-skill`, `claude-hud@claude-hud`). Trois niveaux selon ton besoin :
+
+**1. Session ouverte (le plus rapide)** — depuis Claude dans la VM :
+
+```bash
+claude plugin marketplace update                        # rafraîchit tous les marketplaces
+claude plugin update hubee-claude-plugin@hubee-claude-plugin
+/exit
+```
+
+Puis relancer `agent-vm --git-ro claude`. La 1ʳᵉ commande est obligatoire (sans elle la 2ᵉ ne voit pas les nouveaux commits). Le `/exit` est obligatoire — les skills ne se rechargent pas à chaud.
+
+Pour mettre à jour **tous** les plugins en un coup :
+
+```bash
+claude plugin marketplace update
+claude plugin update hubee-claude-plugin@hubee-claude-plugin
+claude plugin update superpowers@claude-plugins-official
+claude plugin update dsfr-skill@dsfr-skill
+claude plugin update claude-hud@claude-hud
+/exit
+```
+
+**2. Recréer la VM courante** :
+
+```bash
+agent-vm rm
+agent-vm --git-ro claude
+```
+
+Détruit la VM du projet et la reconstruit depuis le template Lima local. Plus lourd mais sûr.
+
+**3. Re-baker le template Lima (toutes les futures VMs)** :
+
+```bash
+cd ~/.agent-vm && git pull && agent-vm setup
+```
+
+5-10 min, à faire 1× par mois ou si la config agent-vm partagée a changé. Toutes les VMs créées ensuite auront la dernière version baked-in.
+
 ## Activation côté projet
 
 Dans `<projet>/.claude/settings.json` :
