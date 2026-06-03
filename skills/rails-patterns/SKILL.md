@@ -235,6 +235,131 @@ rescue ActiveRecord::RecordInvalid => e
 end
 ```
 
+## Commentaires CSS sur les patterns réutilisables
+
+Quand un pattern CSS est générique (combobox, autocomplete, widget partagé), commenter en listant ses usages actuels. Avec l'aide de l'IA ces commentaires restent maintenus et sont précieux pour savoir quoi retester en cas de modification.
+
+```css
+/* autocomplete : pattern de combobox réutilisable (email-autocomplete, organization-autocomplete) */
+.autocomplete-wrapper { ... }
+```
+
+## Partials
+
+### Feature-specific, pas `shared/`
+
+Placer les partials dans le dossier de la feature qui les définit. N'utiliser `shared/` que si le partial est réellement utilisé par plusieurs features sans lien logique. Un partial "commun à deux formulaires d'une même resource" reste dans le dossier de la resource.
+
+```
+# ✅
+app/views/organizations/_autocomplete_input.html.erb
+app/views/users/_search.html.erb
+
+# ❌ trop générique
+app/views/shared/_organization_autocomplete.html.erb
+app/views/shared/_search_form.html.erb
+```
+
+### Strict locals (Rails 7.1+)
+
+Toujours déclarer les locals attendus par un partial avec la magic comment `locals:`. Cela documente le contrat et rend Rails strict sur les variables passées.
+
+```erb
+<%# locals: (f:, search_form:) %>
+<%# locals: (subscription:, editable: false) %>
+```
+
+### Minimiser les locals
+
+Ne passer que ce qui varie réellement entre les usages. Les champs, namespaces i18n et classes CSS hardcodés dans le partial sont préférables à des locals dynamiques prématurés.
+
+```erb
+<%# ✅ Locals réduits au strict nécessaire %>
+<%# locals: (f:, search_form:) %>
+
+<%# ❌ Locals qui anticipent des usages hypothétiques %>
+<%# locals: (f:, search_form:, name_field:, siret_field:, label_name:, name_col_class: "fr-col-12 fr-col-md-6") %>
+```
+
+## Rescue scope
+
+Garder le rescue au plus proche de la ligne qui peut lever l'exception. Si l'action API est au milieu d'une méthode, l'extraire dans une méthode privée avec son propre rescue.
+
+```ruby
+# ✅ Rescue isolé sur l'appel API
+def autocomplete
+  @records = fetch_autocomplete_records(params[:q].to_s.strip)
+end
+
+private
+
+def fetch_autocomplete_records(query)
+  return [] if query.length < MIN_LENGTH
+  HubApi::Organization.search(name: query).records
+rescue HubApi::Client::Error
+  []
+end
+
+# ❌ Rescue qui englobe du code qui ne peut pas lever cette erreur
+def autocomplete
+  query = params[:q].to_s.strip
+  @records = if query.length >= MIN_LENGTH
+    HubApi::Organization.search(name: query).records
+  else
+    []
+  end
+rescue HubApi::Client::Error
+  @records = []
+end
+```
+
+## Display methods pour données API externes
+
+Quand on affiche des données issues d'une API externe, traiter tous les champs de façon identique : implémenter des méthodes `display_*` avec fallback pour chaque champ, sans conditions asymétriques.
+
+```ruby
+# ✅ Contrat uniforme avec fallbacks via define_method
+DISPLAY_FALLBACKS = {
+  name: "Nom manquant",
+  siret: "SIRET manquant",
+  branch_code: nil,
+  type: "Type inconnu"
+}.freeze
+
+DISPLAY_FALLBACKS.each_key do |field|
+  define_method(:"display_#{field}") do
+    send(field).presence || DISPLAY_FALLBACKS[field]
+  end
+end
+
+# ❌ Condition asymétrique (pourquoi seulement branch_code ?)
+def label
+  parts = ["#{name} — SIRET #{siret}"]
+  parts << "branche #{branch_code}" if branch_code.present?
+  parts.join(", ")
+end
+```
+
+## Sémantique dans les vues
+
+Préférer les méthodes du form object aux variables d'instance brutes pour exprimer l'intention.
+
+```erb
+<%# ✅ Sémantique claire %>
+<% if !@search_form.search_requested? %>
+  <%# hint initial %>
+<% elsif @users.empty? %>
+  <%# aucun résultat %>
+<% end %>
+
+<%# ❌ Valeur nil comme signal d'état %>
+<% if @users.nil? %>
+  <%# hint initial %>
+<% elsif @users.empty? %>
+  <%# aucun résultat %>
+<% end %>
+```
+
 ## Query Objects
 
 For complex queries:

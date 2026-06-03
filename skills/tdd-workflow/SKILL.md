@@ -113,6 +113,47 @@ end
 
 ### Request Specs
 
+**Règle fondamentale : 1 cas = 1 `it` = N expects.** Un scénario ne se découpe pas en plusieurs `it`. Chaque `it` doit systématiquement inclure `have_http_status` et au moins une assertion sur le body.
+
+Toujours asserter positivement sur le contenu du body pour exprimer ce que la réponse contient. Une assertion négative peut venir en complément, mais ne suffit pas seule. Exception : si le body ne révèle absolument rien de significatif (ex: `<turbo-frame>` vide sans contenu métier), une assertion négative seule est tolérée, mais un commentaire doit remplacer l'assertion positive manquante pour expliquer l'exception au relecteur.
+
+```ruby
+# ✅ Assertion positive + négative en complément
+it "renders the search hint and no results table" do
+  get "/users", params: search_params
+
+  expect(response).to have_http_status(:success)
+  expect(response.body).to include("Renseignez au moins un critère")
+  expect(response.body).not_to include("fr-table")
+end
+
+# ✅ Exception documentée : body sans contenu significatif
+it "returns an empty list and does not call hub-api" do
+  get "/organizations/autocomplete", params: {q: "abc"}
+
+  expect(response).to have_http_status(:success)
+  # Le body est un <turbo-frame> vide — aucun contenu métier à asserter positivement.
+  expect(response.body).not_to include("<li")
+end
+```
+
+**Préférer le hash complet à `hash_including`** — asserter le hash exact rend le contrat explicite et détecte les paramètres inattendus. `hash_including` est toléré dans des cas précis (hash très verbeux, paramètres variables comme un timestamp), mais doit être accompagné d'un commentaire qui justifie l'exception.
+
+```ruby
+# ✅ Hash complet — contrat explicite
+expect(Keycloak::UserClient).to have_received(:search)
+  .with(siret: "22770001000019", searched: "Dup", offset: 0, per_page: 10)
+
+# ✅ Exception justifiée
+expect(Keycloak::UserClient).to have_received(:search)
+  .with(hash_including(siret: "22770001000019"))
+  # offset et per_page testés séparément dans le contexte pagination
+
+# ❌ hash_including sans raison — masque ce qui est réellement envoyé
+expect(Keycloak::UserClient).to have_received(:search)
+  .with(hash_including(siret: "22770001000019", searched: "Dup"))
+```
+
 ```ruby
 RSpec.describe "Subscriptions", type: :request do
   let(:user) { create(:user, :admin) }
@@ -120,13 +161,10 @@ RSpec.describe "Subscriptions", type: :request do
   before { sign_in user }
 
   describe "GET /subscriptions" do
-    it "returns http success" do
+    it "returns the subscription list" do
       get subscriptions_path
-      expect(response).to have_http_status(:success)
-    end
 
-    it "renders the index template" do
-      get subscriptions_path
+      expect(response).to have_http_status(:success)
       expect(response).to render_template(:index)
     end
   end
@@ -137,14 +175,11 @@ RSpec.describe "Subscriptions", type: :request do
         { subscription: attributes_for(:subscription) }
       end
 
-      it "creates a new subscription" do
+      it "creates a new subscription and redirects" do
         expect {
           post subscriptions_path, params: valid_params
         }.to change(Subscription, :count).by(1)
-      end
 
-      it "redirects to the subscription" do
-        post subscriptions_path, params: valid_params
         expect(response).to redirect_to(Subscription.last)
       end
     end
@@ -154,15 +189,13 @@ RSpec.describe "Subscriptions", type: :request do
         { subscription: { organization_id: nil } }
       end
 
-      it "does not create a subscription" do
+      it "does not create a subscription and re-renders the form" do
         expect {
           post subscriptions_path, params: invalid_params
         }.not_to change(Subscription, :count)
-      end
 
-      it "renders the new template" do
-        post subscriptions_path, params: invalid_params
         expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.body).to include("Organization must exist")
       end
     end
   end
@@ -189,6 +222,88 @@ FactoryBot.define do
       notes { Faker::Lorem.paragraph }
     end
   end
+end
+```
+
+## HubEE Test Conventions
+
+### Matrices d'état : hashes nommés avec flags explicites
+
+Utiliser des hashes avec clés nommées. Déclarer les flags booléens explicitement, ne jamais les recalculer inline.
+
+```ruby
+# ✅ Hash avec clés nommées et flags explicites
+siret_states = {
+  "valid siret"   => { input: "227 700 010 00019", invalid: false },
+  "invalid siret" => { input: "123",               invalid: true  },
+  "blank siret"   => { input: "",                  invalid: false }
+}
+
+# ❌ Flag calculé inline (confus, fragile)
+siret_invalid = siret[:input].present? && siret[:sanitized].nil?
+
+# ❌ Array positionnel (ordre implicite, illisible)
+siret_states = {
+  "valid siret"   => ["227 700 010 00019", "22770001000019"],
+}
+```
+
+Pour les matrices de transformation (`to_keycloak_params`, etc.) :
+
+```ruby
+siret_states = {
+  "valid siret"   => { input: "227 700 010 00019", expected_output: "22770001000019" },
+  "invalid siret" => { input: "123",               expected_output: nil              },
+  "blank siret"   => { input: "",                  expected_output: nil              }
+}
+```
+
+### Séparation des `describe` par méthode
+
+Ne jamais tester deux méthodes différentes dans le même `describe`. Un `describe "#valid?"` ne doit pas inclure d'assertions sur `#sanitized_siret`.
+
+```ruby
+# ✅
+describe "#valid?" do
+  it "is invalid with a bad siret" do
+    expect(described_class.new(siret: "123")).not_to be_valid
+  end
+end
+
+describe "#sanitized_siret" do
+  it "returns nil for an invalid siret" do
+    expect(described_class.new(siret: "123").sanitized_siret).to be_nil
+  end
+end
+```
+
+### Whitespace : tester dans les form specs
+
+Les cas whitespace (strip avant validation de longueur) se testent dans les specs du form object, pas dans les request specs. La request spec garde un seul cas représentatif pour valider l'intégration.
+
+```ruby
+# Dans search_form_spec.rb
+describe "name normalization" do
+  it "strips surrounding whitespace before checking length" do
+    expect(described_class.new(name: "  ab  ")).not_to be_valid   # 2 utiles
+    expect(described_class.new(name: "  a bb c  ")).to be_valid   # 7 utiles
+  end
+end
+```
+
+### Helpers de test : pas de params inutilisés
+
+Ne jamais ajouter `**extra` ou des paramètres optionnels à un helper de test s'ils ne sont pas utilisés.
+
+```ruby
+# ✅
+def search_params(siret: "", organization_name: "", searched: "", user_type: "")
+  {siret:, organization_name:, searched:, user_type:}
+end
+
+# ❌ **extra inutile, charge mentale pour le relecteur
+def search_params(siret: "", organization_name: "", searched: "", user_type: "", **extra)
+  {siret:, organization_name:, searched:, user_type:}.merge(extra)
 end
 ```
 
