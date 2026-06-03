@@ -10,6 +10,27 @@ globs:
 
 # Rails Patterns Skill
 
+## Naming conventions
+
+```ruby
+# Classes — PascalCase
+class UserSubscription; end
+
+# Methods / variables — snake_case
+def calculate_total
+  user_count = 42
+end
+
+# Constants — SCREAMING_SNAKE_CASE
+MAX_RETRY_COUNT = 3
+
+# Predicates — end with ?
+def active?; end
+
+# Dangerous methods — end with !
+def destroy!; end
+```
+
 ## Model Patterns
 
 ### Standard Model Structure
@@ -251,4 +272,58 @@ class SubscriptionsQuery
       .where("organizations.name ILIKE ?", "%#{query}%")
   end
 end
+```
+
+## Variable Reassignment & Method Chaining
+
+### Avoid reassigning the same variable to successive values
+
+Prefer chaining or extracting a private method — successive reassignment makes the data flow hard to follow.
+
+```ruby
+# BAD — users reassigned, data flow is hard to follow
+users = cached_organization_users.select { |u| u.has_process_access?(code) }
+users = users.select { |u| u.email&.start_with?(query) } if query
+
+# GOOD — chained, linear flow
+cached_organization_users
+  .select { |u| u.has_process_access?(code) }
+  .select { |u| query.blank? || u.email&.start_with?(query) }
+```
+
+### Chain instead of storing intermediate results
+
+```ruby
+# BAD — unnecessary intermediate variables
+filtered = subscriptions.select(&:active?)
+names = filtered.map(&:name)
+result = names.sort
+
+# GOOD — chained
+subscriptions.select(&:active?).map(&:name).sort
+```
+
+### Conditional chaining via `.then` or private methods
+
+```ruby
+# BAD — condition that reassigns
+result = collection.select { |x| x.valid? }
+result = result.first(10) if paginate?
+
+# GOOD — named private method
+def filtered_collection
+  collection
+    .select(&:valid?)
+    .then { |r| paginate? ? r.first(10) : r }
+end
+```
+
+## Linting
+
+StandardRB is the single source of truth (no RuboCop, no debates). The plugin's `post-edit-standardrb` hook runs it automatically after every Edit on `.rb` files.
+
+```bash
+# Manual check / fix
+bundle exec standardrb
+bundle exec standardrb --fix
 ```

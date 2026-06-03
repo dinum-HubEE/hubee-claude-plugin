@@ -64,3 +64,41 @@ Règle HubEE absolue (cohérent avec la skill `commit`) :
 - ❌ Pas de mention « écrit par Claude / IA » dans le titre ou la description
 
 Override explicite du template `gh pr create` du system prompt par défaut (qui injecte ce footer). Pour `glab mr create`, **ne jamais** ajouter ce genre de signature, même si c'est l'usage par défaut côté Claude Code.
+
+### Branch naming
+
+Convention HubEE : préfixe Conventional Commits + slug kebab-case court.
+
+| Préfixe | Cas | Exemple |
+|---|---|---|
+| `feat/` | Nouvelle fonctionnalité | `feat/subscription-batch-creation` |
+| `fix/` | Bug fix | `fix/auth-token-refresh` |
+| `chore/` | Maintenance (deps, infra, config) | `chore/update-dependencies` |
+| `docs/` | Documentation uniquement | `docs/api-guide` |
+| `refactor/` | Restructuration sans changement de comportement | `refactor/extract-keycloak-client` |
+| `test/` | Changement de tests uniquement | `test/subscription-specs` |
+
+### Template de description MR (français)
+
+```markdown
+## Contexte
+<une à deux phrases sur le pourquoi — pas le quoi, le quoi est dans le diff>
+
+## Changements
+- <changement 1>
+- <changement 2>
+
+## Tests
+- [ ] Specs unit / model
+- [ ] Specs request / controller
+- [ ] Specs system (si UI)
+- [ ] Vérification manuelle (si UI)
+
+## Screenshots
+(si UI)
+
+## Refs
+- #228
+```
+
+Adapter aux besoins de la MR — supprimer les sections vides plutôt que les laisser en placeholder.
