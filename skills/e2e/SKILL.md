@@ -11,10 +11,30 @@ Create comprehensive end-to-end tests using RSpec system specs with Capybara.
 
 ## Setup
 
+Le driver par défaut pour les system specs est `:rack_test` (rapide, sans navigateur). Utiliser `:selenium_chrome_headless` uniquement pour les specs qui nécessitent du JavaScript via la metadata `js: true`.
+
 ```ruby
-# spec/system/support/capybara.rb
-Capybara.default_driver = :selenium_chrome_headless
-Capybara.javascript_driver = :selenium_chrome_headless
+# spec/rails_helper.rb (ou spec/support/system.rb)
+RSpec.configure do |config|
+  config.before(:each, type: :system) { driven_by :rack_test }
+  config.before(:each, type: :system, js: true) { driven_by :selenium_chrome_headless }
+end
+```
+
+Ne pas mettre `driven_by` dans un `before` block du spec lui-même. Ne pas mettre `driven_by :selenium_chrome_headless` globalement.
+
+## Nommage des fichiers
+
+Nommer le fichier spec précisément selon ce qui est testé, pas selon la ressource.
+
+```
+# ✅ Précis
+spec/system/users_search_organization_autocomplete_spec.rb
+spec/system/subscriptions_pdf_export_spec.rb
+
+# ❌ Trop vague (on ne sait pas quel flux est couvert)
+spec/system/users_spec.rb
+spec/system/subscriptions_spec.rb
 ```
 
 ## Writing System Specs
@@ -22,12 +42,8 @@ Capybara.javascript_driver = :selenium_chrome_headless
 ### Basic Structure
 
 ```ruby
-# spec/system/subscriptions_spec.rb
-RSpec.describe "Subscriptions", type: :system do
-  before do
-    driven_by(:selenium_chrome_headless)
-  end
-
+# spec/system/subscriptions_list_spec.rb
+RSpec.describe "Subscriptions list", type: :system do
   let(:admin) { create(:user, :admin) }
 
   before { sign_in admin }
@@ -124,6 +140,8 @@ end
 ```
 
 ### Testing JavaScript
+
+Annoter avec `js: true` — le driver `:selenium_chrome_headless` est activé automatiquement via `rails_helper`.
 
 ```ruby
 describe "dynamic form", js: true do

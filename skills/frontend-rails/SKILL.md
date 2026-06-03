@@ -1,6 +1,6 @@
 ---
 name: frontend-rails
-description: DSFR + Rails integration specifics — dsfr-form_builder (model-bound and search forms), hidden_field anti-pattern (no mirroring of server-known values), Hotwire integration in ERB views, gem-over-npm rationale. Use when editing ERB templates, building forms, integrating Hotwire (Turbo/Stimulus) into DSFR-styled views, or making decisions about hidden fields vs server lookups. For pure DSFR component documentation (HTML structure, accessibility, fr-* classes), use the dsfr-skill plugin instead.
+description: DSFR + Rails integration specifics — dsfr-form_builder (model-bound and search forms), partials (feature-specific placement, strict locals Rails 7.1+, minimize locals), semantic view methods via form objects (not nil checks), hidden_field anti-pattern, Hotwire integration in ERB views, CSS comments documenting reusable patterns, gem-over-npm rationale. Use when editing ERB templates or partials, building forms, declaring strict locals, writing Stimulus controllers, commenting reusable CSS patterns, or making decisions about hidden fields vs server lookups. For pure DSFR component documentation (HTML structure, accessibility, fr-* classes), use the dsfr-skill plugin instead.
 globs:
   - "app/views/**/*.erb"
   - "app/javascript/controllers/**/*.js"
@@ -76,6 +76,63 @@ If the server already has access to the data (database lookup, existing associat
 
 **Rule**: a hidden field carries a value **only the client knows**, not a mirror of data already present in the database.
 
+## Partials
+
+### Feature-specific, pas `shared/`
+
+Placer les partials dans le dossier de la feature qui les définit. N'utiliser `shared/` que si le partial est réellement utilisé par plusieurs features sans lien logique. Un partial "commun à deux formulaires d'une même resource" reste dans le dossier de la resource.
+
+```
+# ✅
+app/views/organizations/_autocomplete_input.html.erb
+app/views/users/_search.html.erb
+
+# ❌ trop générique
+app/views/shared/_organization_autocomplete.html.erb
+app/views/shared/_search_form.html.erb
+```
+
+### Strict locals (Rails 7.1+)
+
+Toujours déclarer les locals attendus par un partial avec la magic comment `locals:`. Cela documente le contrat et rend Rails strict sur les variables passées.
+
+```erb
+<%# locals: (f:, search_form:) %>
+<%# locals: (subscription:, editable: false) %>
+```
+
+### Minimiser les locals
+
+Ne passer que ce qui varie réellement entre les usages. Les champs, namespaces i18n et classes CSS hardcodés dans le partial sont préférables à des locals dynamiques prématurés.
+
+```erb
+<%# ✅ Locals réduits au strict nécessaire %>
+<%# locals: (f:, search_form:) %>
+
+<%# ❌ Locals qui anticipent des usages hypothétiques %>
+<%# locals: (f:, search_form:, name_field:, siret_field:, label_name:, name_col_class: "fr-col-12 fr-col-md-6") %>
+```
+
+## Sémantique des vues
+
+Préférer les méthodes du form object aux variables d'instance brutes pour exprimer l'intention. Les vues n'ont pas à interpréter une valeur `nil` comme un signal d'état — c'est au form object d'exposer une méthode sémantique (`search_requested?`, `submitted?`, etc.).
+
+```erb
+<%# ✅ Sémantique claire %>
+<% if !@search_form.search_requested? %>
+  <%# hint initial %>
+<% elsif @users.empty? %>
+  <%# aucun résultat %>
+<% end %>
+
+<%# ❌ Valeur nil comme signal d'état %>
+<% if @users.nil? %>
+  <%# hint initial %>
+<% elsif @users.empty? %>
+  <%# aucun résultat %>
+<% end %>
+```
+
 ## Hotwire integration
 
 Interactive JavaScript uses Hotwire (Turbo + Stimulus). For deep Hotwire patterns (Turbo Frames/Streams choreography, complex Stimulus controllers), see the `hotwire` skill. Here we focus on integration with DSFR ERB views.
@@ -100,6 +157,15 @@ export default class extends Controller {
   <button class="fr-btn" data-action="click->example#greet">Cliquer</button>
   <span data-example-target="output"></span>
 </div>
+```
+
+## Commentaires CSS sur les patterns réutilisables
+
+Quand un pattern CSS est générique (combobox, autocomplete, widget partagé), commenter en listant ses usages actuels. Documenter la surface impactée évite les régressions lors d'une modification : la liste sert de checklist de retest.
+
+```css
+/* autocomplete : pattern de combobox réutilisable (email-autocomplete, organization-autocomplete) */
+.autocomplete-wrapper { ... }
 ```
 
 ## Accessibility (RGAA 4.1)

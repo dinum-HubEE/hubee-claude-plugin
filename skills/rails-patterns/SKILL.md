@@ -235,6 +235,65 @@ rescue ActiveRecord::RecordInvalid => e
 end
 ```
 
+## Rescue scope
+
+Garder le rescue au plus proche de la ligne qui peut lever l'exception. Si l'action API est au milieu d'une méthode, l'extraire dans une méthode privée avec son propre rescue.
+
+```ruby
+# ✅ Rescue isolé sur l'appel API
+def autocomplete
+  @records = fetch_autocomplete_records(params[:q].to_s.strip)
+end
+
+private
+
+def fetch_autocomplete_records(query)
+  return [] if query.length < MIN_LENGTH
+  HubApi::Organization.search(name: query).records
+rescue HubApi::Client::Error
+  []
+end
+
+# ❌ Rescue qui englobe du code qui ne peut pas lever cette erreur
+def autocomplete
+  query = params[:q].to_s.strip
+  @records = if query.length >= MIN_LENGTH
+    HubApi::Organization.search(name: query).records
+  else
+    []
+  end
+rescue HubApi::Client::Error
+  @records = []
+end
+```
+
+## Display methods pour données API externes
+
+Quand on affiche des données issues d'une API externe, traiter tous les champs de façon identique : implémenter des méthodes `display_*` avec fallback pour chaque champ, sans conditions asymétriques.
+
+```ruby
+# ✅ Contrat uniforme avec fallbacks via define_method
+DISPLAY_FALLBACKS = {
+  name: "Nom manquant",
+  siret: "SIRET manquant",
+  branch_code: nil,
+  type: "Type inconnu"
+}.freeze
+
+DISPLAY_FALLBACKS.each_key do |field|
+  define_method(:"display_#{field}") do
+    send(field).presence || DISPLAY_FALLBACKS[field]
+  end
+end
+
+# ❌ Condition asymétrique (pourquoi seulement branch_code ?)
+def label
+  parts = ["#{name} — SIRET #{siret}"]
+  parts << "branche #{branch_code}" if branch_code.present?
+  parts.join(", ")
+end
+```
+
 ## Query Objects
 
 For complex queries:
