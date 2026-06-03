@@ -13,7 +13,7 @@ Pour les devs HubEE qui utilisent [`hubee-agent-vm-config`](https://gitlab.hubee
 
 ## Mise à jour
 
-Les 4 plugins HubEE (`hubee-claude-plugin`, `superpowers@claude-plugins-official`, `dsfr-skill@dsfr-skill`, `claude-hud@claude-hud`) sont mis à jour **automatiquement à chaque `agent-vm claude`**. Aucune action manuelle nécessaire.
+Les 4 plugins HubEE (`hubee-claude-plugin`, `superpowers@claude-plugins-official`, `dsfr-skill@dsfr-skill`, `claude-hud@claude-hud`) sont mis à jour **automatiquement à chaque `agent-vm claude`**. Aucune action manuelle nécessaire. Pas de bump de version manuel : le plugin n'a pas de champ `version`, chaque commit SHA sur `main` est une nouvelle version (cf. [plugins-reference#version-management](https://code.claude.com/docs/en/plugins-reference#version-management)).
 
 Le mécanisme : à chaque lancement, la VM exécute en best-effort :
 
@@ -73,19 +73,21 @@ Dans `<projet>/.claude/settings.json` :
 | `execute` | Exécuter un plan step-by-step (override `superpowers:executing-plans`) |
 | `explore-rails` | Naviguer un projet Rails route → controller → service → model → view |
 | `finishing-branch` | Finaliser une branche, préparer la MR GitLab (override `superpowers:finishing-a-development-branch`) |
+| `frontend-rails` | DSFR + Rails (dsfr-form_builder, hidden_field anti-pattern, Hotwire dans ERB DSFR) |
 | `gitlab` | Lire issues/MR/board/fichiers de l'instance HubEE GitLab via `glab` |
-| `hubee-recap` | Résumé mensuel des MR/PR mergées sur HubEE (GitLab interne + GitHub publics), avec « Évolutions notables » par thème |
 | `hotwire` | Turbo Frames/Streams, Stimulus controllers |
+| `hubee-recap` | Résumé mensuel des MR/PR mergées sur HubEE (GitLab interne + GitHub publics), avec « Évolutions notables » par thème |
+| `performance` | DB / Rails performance (N+1, indexing, pluck/find_each, caching, jobs) |
 | `plan` | Rédiger un plan d'implémentation (override `superpowers:writing-plans`) |
-| `rails-patterns` | Models, controllers, services, queries Rails |
+| `principles` | Pousser back contre l'over-abstraction (YAGNI > KISS > DRY > SOLID, Rule of Three, Semantic DRY) |
+| `rails-patterns` | Models, controllers, services, queries, naming, method chaining |
 | `review` | Checklist review HubEE avant push/MR (Rails + RSpec + DSFR + RGAA + Keycloak) |
+| `security` | Audit sécurité Rails HubEE (SQL injection, XSS, mass assignment, Keycloak, brakeman) |
 | `tdd-workflow` | TDD RSpec/FactoryBot/SimpleCov 80% (override `superpowers:test-driven-development`) |
 
-## Rules, hooks, agents
+## Hooks
 
-- **Rules** (toujours appliquées) : `principles` (YAGNI > KISS > DRY > SOLID + Rule of Three), `git-workflow`, `security`, `agent-delegation`, `code-style`, `testing`, `performance`, `frontend` (DSFR + RGAA)
-- **Hooks** : `pre-bash` (bloque git destructifs), `pre-edit-secrets` (bloque édition `.env`/`master.key`), `pre-edit-rspec-hint`, `post-edit-standardrb`, `on-stop`, `on-notification`
-- **Agents** : `explore` (navigation codebase), `security` (vulnérabilités, OWASP)
+`pre-bash` (bloque git destructifs), `pre-edit-secrets` (bloque édition `.env` / `master.key` / `credentials.yml.enc`), `pre-edit-rspec-hint`, `post-edit-standardrb` (StandardRB auto-fix), `on-stop`, `on-notification`.
 
 ## Conventions
 
@@ -96,12 +98,4 @@ Dans `<projet>/.claude/settings.json` :
 
 ## Publier un changement
 
-Toute modif du plugin (skill, rule, hook, agent) **doit** s'accompagner d'un bump de version :
-
-1. **Bump `version`** dans `.claude-plugin/plugin.json` **ET** dans `.claude-plugin/marketplace.json` (champ `metadata.version` + `plugins[0].version`). Garder les 3 valeurs strictement identiques.
-2. Commit + push sur `main`. Sans bump, `claude plugin update` côté dev ne détecte pas de nouvelle version → l'auto-update au lancement de la VM est silencieusement no-op.
-
-Versionnage : SemVer.
-- Patch (0.X.Y → 0.X.Y+1) : fix sur une skill/rule/hook existante.
-- Minor (0.X.Y → 0.X+1.0) : nouvelle skill/rule/hook/agent, ou enrichissement notable.
-- Major : changement breaking (skill renommée/supprimée, hook qui change de comportement par défaut).
+Pas de versionnage manuel. Le plugin n'a pas de champ `version` dans son manifeste : chaque commit SHA est une nouvelle version automatique (cf. [plugins-reference#version-management](https://code.claude.com/docs/en/plugins-reference#version-management)). `claude plugin update hubee-claude-plugin@hubee-claude-plugin` diffuse n'importe quel commit pushé sur `main`.

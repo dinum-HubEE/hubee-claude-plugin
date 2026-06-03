@@ -1,7 +1,6 @@
 {
   "name": "hubee-claude-plugin",
-  "description": "Plugin Claude Code partagé pour les projets HubEE : skills, rules, hooks et agents communs (Rails, Java, legacy)",
-  "version": "0.2.0",
+  "description": "Plugin Claude Code partagé pour les projets HubEE : skills et hooks communs (Rails, Java, legacy)",
   "author": {
     "name": "DINUM HubEE"
   },

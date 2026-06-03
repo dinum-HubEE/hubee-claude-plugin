@@ -4,15 +4,13 @@
     "name": "DINUM HubEE"
   },
   "metadata": {
-    "description": "Plugin Claude Code partagé pour les projets HubEE : skills, rules, hooks et agents communs (Rails, Java, legacy)",
-    "version": "0.2.0"
+    "description": "Plugin Claude Code partagé pour les projets HubEE : skills et hooks communs (Rails, Java, legacy)"
   },
   "plugins": [
     {
       "name": "hubee-claude-plugin",
       "source": "./",
-      "description": "Skills (Rails, Hotwire, Keycloak OIDC, API client, TDD), rules (principes, code style, sécurité, tests), hooks (pre-bash, pre-edit-secrets, post-edit-standardrb, etc.) et agents (explore, security) communs aux projets HubEE.",
-      "version": "0.2.0",
+      "description": "Skills (principles, security, performance, rails-patterns, hotwire, frontend-rails, authentication, api-client, tdd-workflow, e2e, plan, execute, commit, finishing-branch, explore-rails, gitlab, review, hubee-recap, build-fix, architecture) et hooks (pre-bash, pre-edit-secrets, pre-edit-rspec-hint, post-edit-standardrb, on-stop, on-notification) communs aux projets HubEE.",
       "author": {
         "name": "DINUM HubEE"
       },

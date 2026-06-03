@@ -66,6 +66,22 @@ module Statusable
 end
 ```
 
+## Language: English-only test descriptions
+
+All `describe` / `context` / `it` descriptions MUST be in **English**, even though the rest of the project (commits, MRs, comments) stays in French. Specs are the only mandatory-English surface.
+
+```ruby
+# BAD
+it "marche"
+it "should return true"
+it "test la création"
+
+# GOOD
+it "returns true when organization is active"
+it "creates a subscription with valid params"
+it "displays error for invalid SIRET"
+```
+
 ## RSpec Patterns
 
 ### Model Specs
@@ -197,3 +213,21 @@ bundle exec rspec --only-failures
 # Run with coverage
 COVERAGE=true bundle exec rspec
 ```
+
+## Coverage Target
+
+Minimum **80% line coverage**, enforced by SimpleCov (`spec/spec_helper.rb`). Coverage runs automatically in CI and on-demand locally:
+
+```bash
+COVERAGE=true bundle exec rspec   # generates coverage/index.html
+open coverage/index.html          # detailed report (line + branch)
+```
+
+Branch coverage is tracked but not enforced as a minimum (yet).
+
+## What NOT to Test
+
+- Rails internals (trust the framework)
+- Third-party gems (trust their test suite)
+- Simple delegations (`delegate :name, to: :organization`)
+- Private methods directly — test through the public interface

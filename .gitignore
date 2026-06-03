@@ -1,3 +1,6 @@
 # Handoff Claude → dev pour `git commit` (cf. skill commit du plugin)
 .commit-msg*.tmp
 .commit-files*.tmp
+
+# Plans superpowers (générés à chaque session, pas du contenu plugin)
+docs/superpowers/plans/

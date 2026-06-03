@@ -1,3 +1,8 @@
+---
+name: principles
+description: Apply core development principles (YAGNI > KISS > DRY > SOLID) before proposing any code or refactor. Use when designing new code, suggesting abstractions, extracting helpers/services, or reviewing whether a proposed change adds necessary complexity. Especially important to push back against over-abstraction reflexes (premature service objects, dependency injection without callers, generic configuration). Includes Rule of Three (don't extract on 2nd duplication) and Semantic DRY (coincidence of value ≠ same knowledge).
+---
+
 # Development Principles
 
 Apply these principles to all code produced. Priority when in conflict: **YAGNI > KISS > DRY > SOLID**.
