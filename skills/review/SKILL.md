@@ -1,15 +1,15 @@
 ---
 name: review
-description: Reviewer le code changé sur la branche courante avec une checklist HubEE (Rails patterns + RSpec + StandardRB + Keycloak + RGAA + DSFR). Use when user asks to review changes, before opening/marking-ready a MR, or before requesting human review.
+description: Passer en revue le code modifié sur la branche courante en confrontant le diff aux skills de domaine autoritaires (méthode + routage), sans dupliquer leurs règles. À utiliser quand on demande de relire des changements, avant d'ouvrir ou de marquer une MR prête, ou avant de demander une review humaine.
 ---
 
-# Review HubEE Skill
+# Revue de code HubEE
 
-> Checklist de **review automatique avant push / avant MR** pour les projets HubEE Rails. Couvre les conventions techniques (Rails, RSpec, StandardRB), métier (Keycloak, API HubEE), et frontend (DSFR + RGAA).
+> Revue **avant push / avant MR** pour les projets HubEE. Ce skill n'est **pas une checklist figée** : c'est une **méthode** qui délimite le diff, **associe** chaque chemin modifié au skill de domaine qui fait autorité, et confronte le diff à la **version actuelle complète** de ce skill. Le seul contenu propre à la revue = la table de routage + les vérifications natives qui n'existent dans aucun skill de domaine. La table de routage ci-dessous est orientée **Rails** (cas le plus courant chez HubEE) ; la méthode reste valable pour d'autres stacks, en routant vers leurs propres conventions.
 
-## Procédure
+## Méthode
 
-### 1. État des changements
+### 1. Délimiter le diff
 
 ```bash
 git fetch origin main
@@ -17,132 +17,98 @@ git log origin/main..HEAD --oneline
 git diff origin/main..HEAD --stat
 ```
 
-Identifier les fichiers modifiés/ajoutés/supprimés. Si beaucoup de fichiers (>20), proposer un découpage en plusieurs MR.
+Lister les fichiers **modifiés / ajoutés / supprimés**. C'est le périmètre exact de la revue.
 
-### 2. Vérifications techniques (toujours)
+### 2. Associer les chemins aux skills de domaine
 
-#### Rails patterns
+Pour chaque fichier du diff, identifier le ou les skills de domaine concernés via la **table de routage** ci-dessous.
 
-- [ ] **Skinny controllers, fat models** : la logique métier est dans models / services, pas dans controllers
-- [ ] **Service objects** dans `app/services/` quand un controller a >1 action complexe
-- [ ] **N+1 queries** : `includes` / `preload` ajoutés pour les relations chargées en boucle (cf. `tdd-workflow` skill, on devrait avoir des specs avec `expect { ... }.to make_database_queries(count: N)`)
-- [ ] **Strong Parameters** sur tous les controllers qui acceptent du POST/PATCH
-- [ ] **i18n** : pas de strings UI hardcodées (utiliser `t(...)`), même pour les flash messages
-- [ ] **Routes RESTful** : pas de routes custom sans bonne raison
+### 3. Charger les skills de domaine concernés
 
-#### Tests (cf. skill `tdd-workflow`)
+Charger réellement chaque skill associé (pas une copie mentale). Le contenu autoritaire des règles vit **dans ces skills**, pas ici.
 
-- [ ] **Couverture** : toute nouvelle route a un request spec, tout nouveau service/model a un unit spec
-- [ ] **Descriptions en anglais** : `it "..."` / `describe "..."` (cf. rule `testing` du plugin)
-- [ ] **Pas de `binding.pry` / `puts` / `pp`** oubliés dans les specs
-- [ ] **`Faker` ou `FactoryBot.build_stubbed`** pour les data, pas de fixtures globales
-- [ ] **Coverage 80%+** (`COVERAGE=true bundle exec rspec` puis vérifier `coverage/index.html`)
-- [ ] **Tests system** (Capybara/Selenium) pour tout nouveau parcours utilisateur
+### 4. Confronter le diff à la VERSION ACTUELLE du skill
 
-#### Style & Sécurité
+Lire le diff ligne à ligne et le confronter au **contenu actuel complet** du skill chargé. C'est volontairement plus complet et sans dérive qu'une checklist recopiée : si un skill de domaine gagne une règle demain, la revue l'applique automatiquement, sans qu'on ait à la reporter ici.
 
-- [ ] `bin/ci` passe en local (Style ✓, Security ✓, Tests ✓, Brakeman 0 warning)
-- [ ] Pas de `binding.pry`, `byebug`, `debugger`, `console.log` dans le code de prod
-- [ ] Pas de fichiers `.env*`, `master.key`, `credentials.yml.enc` dans le diff (le hook `pre-edit-secrets` du plugin l'empêche, mais double-check)
-- [ ] Pas de TODO/FIXME ajoutés sans ticket associé
-- [ ] Pas de gros fichiers binaires sans bonne raison
+### 5. Trier les constats
 
-### 3. Vérifications métier HubEE
+Classer chaque écart en **✅ OK / ⚠️ attention / 🛑 bloquant / suggestion** (voir format de sortie dans les vérifications natives).
 
-#### Keycloak / Auth
+## Table de routage
 
-Si le diff touche `app/controllers/sessions_controller.rb`, `app/services/keycloak/`, `config/initializers/omniauth.rb`, ou `app/controllers/concerns/authentication.rb` :
+Le diff touche ces chemins → charger ces skills et confronter le diff à leur contenu actuel.
 
-- [ ] Vérifier que `authenticate_user!` est bien dans le `ApplicationController` ou les controllers protégés
-- [ ] Pas de bypass d'auth pour des "tests rapides"
-- [ ] Refresh token géré (cf. `feat/session-keepalive` historique)
-- [ ] Tester en mode dégradé (Keycloak unreachable, token expiré)
-- [ ] Cf. skill `authentication` du plugin pour les patterns
+| Le diff touche… | → charger |
+|---|---|
+| `app/models/`, `app/services/` | `rails-patterns`, `principles` |
+| `spec/**` | `tdd-workflow` |
+| `app/views/`, `app/helpers/`, `app/javascript/`, `app/assets/` | `frontend-rails`, `dsfr-skill`, RGAA |
+| `sessions_controller`, `app/services/keycloak/`, `omniauth`, `concerns/authentication` | `authentication`, `security` |
+| `lib/http_client`, `lib/hub_api`, `lib/keycloak` | `api-client` |
+| `.claude/`, `.agent-vm.runtime.sh`, `.claude-container/` | vérifications agent-vm (ci-dessous) |
 
-#### API HubEE / HttpClient
+Mention rapide pour ne rien oublier : diff touche des vues ? → `frontend-rails` + `dsfr-skill` + RGAA. Diff touche des specs ? → `tdd-workflow`. Ne **pas** recopier le détail des règles ici : on les lit dans le skill chargé.
 
-Si le diff touche `lib/http_client.rb`, `lib/hub_api/`, ou `lib/keycloak/{client,user}.rb` :
+## Vérifications natives
 
-- [ ] Architecture en 3 couches respectée (objets métier `Data.define` / client spécialisé / `HttpClient` module — cf. skill `api-client`)
-- [ ] Erreurs HTTP gérées (timeout, 4xx, 5xx) — pas de `raise` sec sans contexte
-- [ ] Pas de URL hardcodée → utiliser `ENV[...]`
+Ces vérifications n'existent dans **aucun** skill de domaine : elles sont propres à la revue et restent concrètes ici.
 
-#### Données métier (cf. CLAUDE.md projet)
+### Verrou `bin/ci`
 
-- **Organization** identifié par SIRET
-- **Process** = type de flux
-- **Subscription** lie Organization à Process
-- Aucune donnée métier persistée localement (le portail consomme l'API HubeeV1)
+- `bin/ci` passe en local : **Style ✓ / Sécurité ✓ / Tests ✓ / Brakeman 0**. Tant que le verrou n'est pas vert, la revue ne valide pas.
 
-Vérifier qu'aucune migration n'introduit une persistance métier (sauf cas explicite documenté).
+### Hygiène du diff
 
-### 4. Vérifications frontend (si UI touchée)
+- Pas de **TODO/FIXME** ajoutés sans ticket associé.
+- Pas de **N+1** introduit (relation chargée en boucle sans `includes`/`preload`).
+- Pas de **secrets** dans le diff : `.env*`, `master.key`, `credentials.yml.enc`. Pas de **gros binaires** sans raison. Le hook `pre-edit-secrets` du plugin l'empêche — à revérifier ici.
 
-Si le diff touche `app/views/`, `app/javascript/`, `app/helpers/`, `app/assets/` :
-
-#### DSFR (mandatory)
-
-Cf. rule `frontend` du plugin et skill `dsfr-skill` (plugin tiers).
-
-- [ ] **Classes `fr-*`** utilisées (pas de Tailwind ni styles custom sans bonne raison)
-- [ ] **Helpers `dsfr_*`** dans les forms (`dsfr_text_field`, `dsfr_email_field`, `dsfr_submit`)
-- [ ] **`Dsfr::FormBuilder`** comme builder par défaut (déjà configuré dans `application.rb`)
-- [ ] **Pas de couleurs custom** (charte gouvernementale, DSFR seul)
-- [ ] **Pas d'install npm** (DSFR via gems Ruby uniquement)
-
-#### RGAA 4.1 (mandatory)
-
-- [ ] **ARIA attributes** appropriés sur les composants interactifs
-- [ ] **Navigation clavier** fonctionnelle (Tab, Enter, Escape)
-- [ ] **Labels explicites** sur tous les form inputs (pas de placeholder qui sert de label)
-- [ ] **Contraste suffisant** (DSFR le garantit si on n'override pas)
-- [ ] **Headings hiérarchiques** (`<h1>` unique, `<h2>` cohérents)
-- [ ] **Skip links** présents si layout complexe
-- [ ] **Annonce des actions dynamiques** (Turbo Stream avec `aria-live`)
-
-#### Hidden fields (cf. rule `frontend`)
-
-- [ ] **Aucun `hidden_field` redondant** : si la valeur peut être résolue côté serveur (depuis params, session, association), retirer le hidden field
-
-### 5. Vérifications agent-vm spécifiques
+### Vérifications agent-vm
 
 Si le diff touche `.claude/`, `.agent-vm.runtime.sh`, `.claude-container/` :
 
-- [ ] Pas de credentials hardcodés (token, password, clé)
-- [ ] `permissions.deny` cohérent avec la doctrine (cf. skill `commit` pour les patterns)
-- [ ] `.gitignore` à jour (`.env`, `.claude/settings.local.json`, etc.)
-- [ ] Si modif `setup.sh` : doit rester impersonnel (pas de "Damien Le Thiec" hardcodé)
+- Pas d'**identifiants en dur** (token, mot de passe, clé).
+- `permissions.deny` **cohérent** avec la doctrine.
+- `.gitignore` **à jour** (`.env`, `.claude/settings.local.json`, etc.).
+- Si modif `setup.sh` : reste **impersonnel** (pas de nom propre en dur).
 
-### 6. Output du review
+### Taille de la MR
 
-Format de présentation au user :
+- Si **> 20 fichiers** modifiés, proposer un **découpage en plusieurs MR**.
+
+### Format de sortie
 
 ```markdown
-## Review de la branche `<branch-name>`
+## Revue de la branche `<nom-de-branche>`
 
 **Périmètre** : N commits, M fichiers (+X -Y lignes)
+**Skills consultés** : [liste des skills de domaine chargés via la table de routage]
 **CI locale** : ✅ verte | ❌ rouge ([détail])
 
 ### ✅ Points OK
-- [Liste des bonnes pratiques constatées]
+- [Bonnes pratiques constatées]
 
 ### ⚠️ Points d'attention
-- [Liste des choses à reviewer humainement, pas bloquant]
+- [À relire humainement, non bloquant]
 
 ### 🛑 Bloquants
-- [Liste des choses à corriger AVANT push]
+- [À corriger AVANT push]
 
 ### Suggestions
 - [Améliorations optionnelles]
 ```
 
-Si **aucun bloquant** : suggérer d'enchaîner sur la skill `finishing-branch` pour préparer la MR.
-Si **bloquants** : refuser de proposer la MR tant qu'ils ne sont pas levés (sauf override explicite du user).
+### Politique de sortie
+
+- **S'il y a un bloquant** : ne pas proposer la MR tant qu'il n'est pas levé (sauf **dérogation explicite** de l'utilisateur).
+- **Si aucun bloquant** : suggérer d'enchaîner sur la skill `finishing-branch` pour préparer la MR.
 
 ## Anti-patterns Claude
 
-- ❌ Marquer le review "✅ tout va bien" sans avoir lu les fichiers en détail
-- ❌ Lister 50 nitpicks sans hiérarchiser
-- ❌ Suggérer un refacto majeur dans un review (ce n'est pas le moment, ouvrir une issue à la place)
-- ❌ Skipper les checks UI/RGAA si le diff touche des views (la rule `frontend` est mandatory)
-- ❌ Enchaîner sur `finishing-branch` automatiquement sans valider que les bloquants sont levés
+- ❌ Marquer la revue "✅ tout va bien" sans avoir lu les fichiers en détail ni chargé les skills de domaine associés.
+- ❌ Recopier ici les règles d'un skill de domaine (Rails, RSpec, RGAA, DSFR, Keycloak, HttpClient) : elles dérivent et donnent une fausse confiance. **Charger le skill et confronter à sa version actuelle.**
+- ❌ Lister 50 détails mineurs sans hiérarchiser.
+- ❌ Proposer un refacto majeur en revue (ce n'est pas le moment : ouvrir une issue à la place).
+- ❌ Ignorer les vérifications UI/RGAA si le diff touche des vues (routage `app/views/` → `frontend-rails` + `dsfr-skill` + RGAA, obligatoire).
+- ❌ Enchaîner sur `finishing-branch` automatiquement sans avoir validé que les bloquants sont levés.
