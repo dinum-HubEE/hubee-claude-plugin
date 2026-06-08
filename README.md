@@ -96,6 +96,33 @@ Dans `<projet>/.claude/settings.json` :
 - Pas de commande slash (skills-first, déclenchement par description)
 - TDD obligatoire sur le code Rails
 
+## Contribuer au plugin
+
+### Frontière de responsabilité (StandardRB vs plugin vs hooks)
+
+Chaque règle a un seul responsable. Ne pas dupliquer une règle d'une couche à l'autre.
+
+| Type de règle | Qui s'en charge |
+|---|---|
+| Mécanique / syntaxique / déterministe (indentation, casse, `frozen_string_literal`) | StandardRB |
+| Jugement / sémantique / intention (Capybara vs Nokogiri, « 1 cas = 1 `it` ») | Plugin (skills) |
+| Décision d'équipe non exprimable en cop | Plugin (skills) |
+| Faits structurels/contextuels au moment d'un outil (spec sans impl, fichier sensible) | Hooks |
+
+**Règle d'or** : si StandardRB l'enforce déjà, ne pas le mettre dans un skill (token gaspillé + moins fiable — StandardRB corrige, un skill ne fait qu'espérer). Les hooks ne ré-encodent jamais un pattern de convention déjà décrit dans un skill (sinon duplication de connaissance). Un skill se mesure à sa **densité de signal** pour le modèle, pas à sa lisibilité humaine : un mur de texte dilue l'attention.
+
+**Le plugin est cross-app.** Il n'encode que des conventions valables pour **toutes** les apps HubEE. Toute règle spécifique à une app (schéma de données, architecture de persistance, parcours métier) appartient au `CLAUDE.md` de cette app, **pas** au plugin partagé : une règle qui suppose l'architecture d'une seule app produirait un faux positif ailleurs.
+
+### Doctrine de handoff (médiation humaine)
+
+**Claude PRÉPARE, le dev EXÉCUTE sur le host.** Toute commande à exécuter = un bloc ` ```bash ` mono-ligne, copier-collable tel quel. **JAMAIS** de blockquote ni de préfixe `>` : le `>` se copie avec la commande et la casse.
+
+Pour du contenu multi-ligne (message de commit, description de MR/PR) : écrire un fichier via l'outil Write, puis fournir une commande mono-ligne qui le consomme (`git commit -F fichier`, `gh pr create --body-file fichier`).
+
+Pas de `clipboard-copy` / OSC52 : l'agent-vm ne peut pas écrire dans le presse-papier du host.
+
+Les skills `commit`, `finishing-branch` et `gitlab` **référencent** cette section au lieu de redire le principe.
+
 ## Publier un changement
 
 Pas de versionnage manuel. Le plugin n'a pas de champ `version` dans son manifeste : chaque commit SHA est une nouvelle version automatique (cf. [plugins-reference#version-management](https://code.claude.com/docs/en/plugins-reference#version-management)). `claude plugin update hubee-claude-plugin@hubee-claude-plugin` diffuse n'importe quel commit pushé sur `main`.
