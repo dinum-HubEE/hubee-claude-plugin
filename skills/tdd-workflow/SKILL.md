@@ -1,106 +1,51 @@
 ---
 name: tdd-workflow
-description: TDD methodology, RSpec patterns, test writing. Use when writing tests, specs, creating features with TDD, or debugging test failures.
+description: Méthodologie TDD et conventions de tests RSpec HubEE. À utiliser pour écrire des tests ou des specs, créer des fonctionnalités en TDD, ou déboguer des échecs de tests.
 globs:
   - "spec/**/*.rb"
   - "spec/factories/**/*.rb"
   - "spec/support/**/*.rb"
 ---
 
-> **Override de `superpowers:test-driven-development`** : cette skill ajoute les conventions HubEE Rails (RSpec, FactoryBot, SimpleCov 80% mini, descriptions `it`/`describe` en anglais) au cycle RED-GREEN-REFACTOR fourni par superpowers. Quand les deux sont disponibles, suivre cette skill HubEE.
+> **Complète `superpowers:test-driven-development`** : son cycle RED-GREEN-REFACTOR s'applique tel quel ; cette skill ajoute uniquement les conventions de tests HubEE décrites ci-dessous.
 
-# TDD Workflow Skill
+# TDD & conventions de tests HubEE
 
-## The TDD Cycle
+## Langue : descriptions de tests en anglais
 
-### 1. RED - Write a failing test
-
-```ruby
-# spec/models/subscription_spec.rb
-RSpec.describe Subscription, type: :model do
-  describe "#active?" do
-    it "returns true when status is active" do
-      subscription = build(:subscription, status: "active")
-      expect(subscription.active?).to be true
-    end
-
-    it "returns false when status is inactive" do
-      subscription = build(:subscription, status: "inactive")
-      expect(subscription.active?).to be false
-    end
-  end
-end
-```
-
-Run: `bundle exec rspec spec/models/subscription_spec.rb`
-Expected: RED (method doesn't exist)
-
-### 2. GREEN - Minimum code to pass
+Toutes les descriptions `describe` / `context` / `it` DOIVENT être en **anglais**, même si le reste du projet (commits, MRs, commentaires) reste en français. Les specs sont la seule surface obligatoirement en anglais.
 
 ```ruby
-# app/models/subscription.rb
-class Subscription < ApplicationRecord
-  def active?
-    status == "active"
-  end
-end
-```
-
-Run: `bundle exec rspec spec/models/subscription_spec.rb`
-Expected: GREEN
-
-### 3. REFACTOR - Improve while green
-
-```ruby
-# Maybe extract to a concern if pattern repeats
-module Statusable
-  extend ActiveSupport::Concern
-
-  included do
-    scope :active, -> { where(status: "active") }
-  end
-
-  def active?
-    status == "active"
-  end
-end
-```
-
-## Language: English-only test descriptions
-
-All `describe` / `context` / `it` descriptions MUST be in **English**, even though the rest of the project (commits, MRs, comments) stays in French. Specs are the only mandatory-English surface.
-
-```ruby
-# BAD
+# ❌
 it "marche"
 it "should return true"
 it "test la création"
 
-# GOOD
+# ✅
 it "returns true when organization is active"
 it "creates a subscription with valid params"
 it "displays error for invalid SIRET"
 ```
 
-## RSpec Patterns
+## Exemples RSpec
 
-### Model Specs
+### Specs de modèle
 
 ```ruby
 RSpec.describe Organization, type: :model do
-  # Use shoulda-matchers for validations
+  # shoulda-matchers pour les validations
   describe "validations" do
     it { is_expected.to validate_presence_of(:siret) }
     it { is_expected.to validate_uniqueness_of(:siret) }
   end
 
-  # Use shoulda-matchers for associations
+  # shoulda-matchers pour les associations
   describe "associations" do
     it { is_expected.to have_many(:subscriptions) }
     it { is_expected.to belong_to(:parent).optional }
   end
 
-  # Test custom methods
+  # Tester les méthodes métier
   describe "#full_name" do
     subject(:org) { build(:organization, siret: "123", name: "Test") }
 
@@ -111,7 +56,7 @@ RSpec.describe Organization, type: :model do
 end
 ```
 
-### Request Specs
+### Specs de requête
 
 **Règle fondamentale : 1 cas = 1 `it` = N expects.** Un scénario ne se découpe pas en plusieurs `it`. Chaque `it` doit systématiquement inclure `have_http_status` et au moins une assertion sur le body.
 
@@ -154,53 +99,19 @@ expect(Keycloak::UserClient).to have_received(:search)
   .with(hash_including(siret: "22770001000019", searched: "Dup"))
 ```
 
+**Assertions HTML : `Capybara.string` + matchers sémantiques, pas regex/string brute.** Préférer `Capybara.string(response.body)` + `have_field` / `have_checked_field` / `have_unchecked_field` / `have_link` / `have_css` à `match(/regex/)`, `include("<html…>")` ou `Nokogiri + at_css(...)["attr"]` : le matcher exprime l'**intention** et échoue lisiblement.
+
 ```ruby
-RSpec.describe "Subscriptions", type: :request do
-  let(:user) { create(:user, :admin) }
-
-  before { sign_in user }
-
-  describe "GET /subscriptions" do
-    it "returns the subscription list" do
-      get subscriptions_path
-
-      expect(response).to have_http_status(:success)
-      expect(response).to render_template(:index)
-    end
-  end
-
-  describe "POST /subscriptions" do
-    context "with valid params" do
-      let(:valid_params) do
-        { subscription: attributes_for(:subscription) }
-      end
-
-      it "creates a new subscription and redirects" do
-        expect {
-          post subscriptions_path, params: valid_params
-        }.to change(Subscription, :count).by(1)
-
-        expect(response).to redirect_to(Subscription.last)
-      end
-    end
-
-    context "with invalid params" do
-      let(:invalid_params) do
-        { subscription: { organization_id: nil } }
-      end
-
-      it "does not create a subscription and re-renders the form" do
-        expect {
-          post subscriptions_path, params: invalid_params
-        }.not_to change(Subscription, :count)
-
-        expect(response).to have_http_status(:unprocessable_entity)
-        expect(response.body).to include("Organization must exist")
-      end
-    end
-  end
-end
+# ❌ regex/string fragile                    # ✅ matcher sémantique
+match(/name="user\[active\]".*checked/)   →  have_checked_field("user[active]")
+include('<a href="/users/42">')           →  have_link("Voir", href: "/users/42")
+Nokogiri::HTML(b).at_css("#x")["value"]   →  have_field("user[email]", with: "a@b.fr")
 ```
+
+Trois nuances :
+- **Capybara pour l'intention, Nokogiri/CSS pour l'ordre/structure DOM.** Nokogiri reste légitime quand on teste une *position* (`thead th:first-child`, ordre des colonnes), pas une intention métier. Ne pas sur-appliquer Capybara.
+- **`visible: :all` inutile en request spec, requis en system spec.** `Capybara.string` analyse du HTML statique sans CSS → les inputs masqués DSFR ne sont pas « hidden ». En system spec (vrai navigateur + CSS DSFR), ils le sont → `visible: :all` requis.
+- **`have_unchecked_field` > `not_to match(/checked/)`** : le matcher exige présence **et** état. L'ancienne regex passait à vide si l'élément était absent (faux positif).
 
 ### Factories
 
@@ -225,7 +136,24 @@ FactoryBot.define do
 end
 ```
 
-## HubEE Test Conventions
+## Conventions de test HubEE
+
+### Pas de date absolue future codée en dur
+
+Ne jamais coder en dur une date absolue dans le futur (ex: `Date.new(2027, 1, 1)`) : elle finira par être dans le passé et le test deviendra flaky à l'échéance. Utiliser une date **relative** (`1.year.from_now`) ou figer le temps avec `travel_to`. Réflexe : « cette date sera-t-elle toujours dans le futur quand le test tournera dans 1 an ? ».
+
+```ruby
+# ❌ périmera
+build(:subscription, expires_at: Date.new(2027, 1, 1))
+
+# ✅ relative
+build(:subscription, expires_at: 1.year.from_now)
+
+# ✅ ou temps figé si une date précise est nécessaire
+travel_to Date.new(2026, 6, 8) do
+  expect(build(:subscription, expires_at: Date.new(2026, 1, 1))).not_to be_valid
+end
+```
 
 ### Matrices d'état : hashes nommés avec flags explicites
 
@@ -277,9 +205,9 @@ describe "#sanitized_siret" do
 end
 ```
 
-### Whitespace : tester dans les form specs
+### Espaces superflus : tester dans les form specs
 
-Les cas whitespace (strip avant validation de longueur) se testent dans les specs du form object, pas dans les request specs. La request spec garde un seul cas représentatif pour valider l'intégration.
+Les cas d'espaces (strip avant validation de longueur) se testent dans les specs du form object, pas dans les request specs. La request spec garde un seul cas représentatif pour valider l'intégration.
 
 ```ruby
 # Dans search_form_spec.rb
@@ -307,42 +235,29 @@ def search_params(siret: "", organization_name: "", searched: "", user_type: "",
 end
 ```
 
-## Commands
+## Commandes
 
 ```bash
-# Run all specs
-bundle exec rspec
-
-# Run specific file
-bundle exec rspec spec/models/subscription_spec.rb
-
-# Run specific line
-bundle exec rspec spec/models/subscription_spec.rb:15
-
-# Run with documentation format
-bundle exec rspec --format documentation
-
-# Run only failures
-bundle exec rspec --only-failures
-
-# Run with coverage
-COVERAGE=true bundle exec rspec
+bundle exec rspec                                      # tout
+bundle exec rspec spec/models/subscription_spec.rb     # un fichier
+bundle exec rspec spec/models/subscription_spec.rb:15  # une ligne
+bundle exec rspec --only-failures                      # seulement les échecs
+COVERAGE=true bundle exec rspec                         # avec coverage
 ```
 
-## Coverage Target
+## Objectif de couverture
 
-Minimum **80% line coverage**, enforced by SimpleCov (`spec/spec_helper.rb`). Coverage runs automatically in CI and on-demand locally:
+Minimum **80 % de couverture de lignes**, imposé par SimpleCov (`spec/spec_helper.rb`). Tourne automatiquement en CI et à la demande en local :
 
 ```bash
-COVERAGE=true bundle exec rspec   # generates coverage/index.html
-open coverage/index.html          # detailed report (line + branch)
+COVERAGE=true bundle exec rspec   # génère coverage/index.html
 ```
 
-Branch coverage is tracked but not enforced as a minimum (yet).
+La couverture de branches est suivie mais pas encore imposée comme minimum.
 
-## What NOT to Test
+## Ce qu'il ne faut PAS tester
 
-- Rails internals (trust the framework)
-- Third-party gems (trust their test suite)
-- Simple delegations (`delegate :name, to: :organization`)
-- Private methods directly — test through the public interface
+- Les internes de Rails (faire confiance au framework)
+- Les gems tierces (faire confiance à leur suite de tests)
+- Les délégations simples (`delegate :name, to: :organization`)
+- Les méthodes privées directement — tester via l'interface publique
