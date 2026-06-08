@@ -1,9 +1,9 @@
 ---
 name: finishing-branch
-description: Finaliser une branche de développement HubEE et préparer la MR GitLab (override de superpowers:finishing-a-development-branch). Use when implementation is complete, all tests pass, and ready to integrate.
+description: Finaliser une branche de développement HubEE et préparer la MR GitLab (override de superpowers:finishing-a-development-branch). À utiliser quand l'implémentation est terminée, que tous les tests passent, et que c'est prêt à intégrer.
 ---
 
-# Finishing Branch HubEE Skill
+# Finalisation de branche HubEE
 
 > **Override de `superpowers:finishing-a-development-branch`.** Délègue toute la méthodologie (vérifications finales, structure du résumé) à la skill superpowers. Cette skill ajoute uniquement les overrides HubEE.
 
@@ -34,26 +34,33 @@ Description en français.
 
 ### Médiation humaine pour les actions externes
 
-`glab mr create` et `git push` sont des actions externes (création de ressource sur le repo partagé / impact remote). Conformément à la doctrine :
+`glab mr create` et `git push` sont des actions externes (création de ressource sur le dépôt partagé / impact distant). Conformément à la **Doctrine de handoff** du README :
 - **Préparer** la commande complète
-- **Pousser dans le clipboard** via `clipboard-copy` (OSC52)
-- Le dev exécute sur son host
+- La fournir en bloc ` ```bash ` **mono-ligne** copier-collable (jamais de blockquote `>`, jamais de `clipboard-copy`)
+- La description de MR passe **toujours** par un fichier écrit via l'outil `Write`, référencée en `--description "$(cat .mr-description.tmp)"`, jamais par un heredoc à coller
+- Le dev copie la commande dans son terminal host et l'exécute
 
-Exemple :
+Étape 1 — écrire la description dans un fichier via l'outil `Write` (chemin `.mr-description.tmp` à la racine du dépôt), avec les sections du template ci-dessous.
+
+Étape 2 — commande mono-ligne pour le dev :
 
 ```bash
-cat <<'EOF' | clipboard-copy
-glab mr create --title "Draft: feat(subscriptions): ..." --description "$(cat <<'DESC'
-## Contexte
-...
-DESC
-)"
-EOF
+glab mr create --title "Draft: feat(subscriptions): ..." --description "$(cat .mr-description.tmp)" && rm .mr-description.tmp
+```
+
+Si la version de `glab` supporte `--description-file`, la préférer :
+
+```bash
+glab mr create --title "Draft: feat(subscriptions): ..." --description-file .mr-description.tmp && rm .mr-description.tmp
 ```
 
 ### Si une MR existe déjà sur la branche
 
-Ne pas créer de doublon (GitLab crée souvent une MR auto au 1er push). Mettre à jour titre + description via `glab api ... -X PUT --field title=... --field description=...`, et pousser cette commande dans le clipboard pareil.
+Ne pas créer de doublon (GitLab crée souvent une MR auto au 1er push). Mettre à jour titre + description via `glab api ... -X PUT`, même principe de passation (description dans `.mr-description.tmp` via `Write`, puis commande mono-ligne copier-collable) :
+
+```bash
+glab api "projects/hubee%2F<projet>/merge_requests/<iid>" -X PUT --field "title=feat(subscriptions): ..." --field "description=$(cat .mr-description.tmp)" && rm .mr-description.tmp
+```
 
 ### Pas d'attribution Claude dans la MR
 
@@ -65,14 +72,14 @@ Règle HubEE absolue (cohérent avec la skill `commit`) :
 
 Override explicite du template `gh pr create` du system prompt par défaut (qui injecte ce footer). Pour `glab mr create`, **ne jamais** ajouter ce genre de signature, même si c'est l'usage par défaut côté Claude Code.
 
-### Branch naming
+### Nommage de branche
 
 Convention HubEE : préfixe Conventional Commits + slug kebab-case court.
 
 | Préfixe | Cas | Exemple |
 |---|---|---|
 | `feat/` | Nouvelle fonctionnalité | `feat/subscription-batch-creation` |
-| `fix/` | Bug fix | `fix/auth-token-refresh` |
+| `fix/` | Correction de bug | `fix/auth-token-refresh` |
 | `chore/` | Maintenance (deps, infra, config) | `chore/update-dependencies` |
 | `docs/` | Documentation uniquement | `docs/api-guide` |
 | `refactor/` | Restructuration sans changement de comportement | `refactor/extract-keycloak-client` |

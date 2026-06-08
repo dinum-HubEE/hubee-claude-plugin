@@ -1,21 +1,21 @@
 ---
 name: commit
-description: Préparer un commit HubEE (Conventional Commits en français + bin/ci automatique + handoff clipboard). Use when the user asks to commit, after completing a feature/fix/refactor, before pushing, or when staged changes are ready to be persisted.
+description: Préparer un commit HubEE (Conventional Commits en français + bin/ci automatique + passation copier-collable). À utiliser quand l'utilisateur demande de commiter, après avoir terminé une feature/correctif/refactor, avant un push, ou quand des changements stagés sont prêts à être persistés.
 ---
 
-# Commit HubEE Skill
+# Commit HubEE
 
-> **Doctrine** : Claude **prépare** le commit, le **dev exécute** sur le host (médiation humaine — la VM est en `--git-ro`, Claude ne peut de toute façon pas commiter). La commande de commit est poussée dans le **clipboard du host** via `clipboard-copy` (OSC52). Le dev colle (`Cmd+V`) sur son terminal host et valide.
+> **Doctrine** : Claude **prépare** le commit, le **dev exécute** sur le host (médiation humaine — la VM est en `--git-ro`, Claude ne peut de toute façon pas commiter). La passation suit la **Doctrine de handoff** du README : toute commande est fournie en bloc ` ```bash ` **mono-ligne** copier-collable (jamais de blockquote `>` autour d'une commande, jamais de `clipboard-copy`), et le contenu multi-ligne (message de commit) passe par un fichier écrit via l'outil `Write` puis référencé en mono-ligne (`git commit -F`). Le dev copie la commande dans son terminal host et valide.
 
 ## Quand cette skill s'active
 
-- Le user dit explicitement "fais un commit", "prépare un commit", "commit ça"
-- Une feature/fix/refactor vient d'être terminée et est prête à être persistée
+- L'utilisateur dit explicitement "fais un commit", "prépare un commit", "commit ça"
+- Une fonctionnalité/correctif/refactor vient d'être terminé et est prêt à être persisté
 - Il y a des changements stagés ou non-stagés cohérents à commiter
 
-## Étapes du workflow
+## Étapes du processus
 
-### 1. État du working tree
+### 1. État de l'arbre de travail
 
 Lancer en parallèle :
 ```bash
@@ -35,11 +35,11 @@ Vérifier mentalement :
 bin/ci
 ```
 
-C'est la règle stricte du projet (cf. `git-workflow` rule du plugin). Le commit n'est **jamais** proposé tant que `bin/ci` n'est pas vert.
+C'est la règle stricte du projet (cf. règle `git-workflow` du plugin). Le commit n'est **jamais** proposé tant que `bin/ci` n'est pas vert.
 
 **Si `bin/ci` échoue** :
 - Identifier l'étape qui plante (Style, Security, Tests, etc.)
-- Proposer le fix au dev
+- Proposer le correctif au dev
 - Re-lancer `bin/ci`
 - Refuser de proposer le commit tant que c'est rouge (sauf si le dev demande explicitement de bypass — alors préciser **clairement** le risque)
 
@@ -47,7 +47,7 @@ C'est la règle stricte du projet (cf. `git-workflow` rule du plugin). Le commit
 
 Avant de rédiger le message, lire :
 - Le ticket lié si visible (numéro de branche, mention dans le diff)
-- Le `.notes/<branch>/tdd-session.md` ou `.notes/<branch>/plan.md` s'ils existent (contexte de la feature)
+- Le `.notes/<branch>/tdd-session.md` ou `.notes/<branch>/plan.md` s'ils existent (contexte de la fonctionnalité)
 - Les commits précédents de la branche (`git log main..HEAD --oneline`) pour cohérence stylistique
 
 ### 4. Rédiger le message — Conventional Commits **en français**
@@ -107,7 +107,7 @@ des imports manuels. Validation SIRET en amont.
 Refs: #228
 ```
 
-**Pas de `Co-Authored-By: Claude`** — règle HubEE absolue (cf. `git-workflow` rule).
+**Pas de `Co-Authored-By: Claude`** — règle HubEE absolue (cf. règle `git-workflow`).
 
 ### 5. Présenter le message au dev pour validation
 
@@ -147,12 +147,12 @@ Attendre validation explicite du dev avant l'étape suivante.
 
 ### 6. Écrire le message dans un fichier + commande mono-ligne
 
-**Doctrine handoff** : pasteer une commande `git commit -m` multi-ligne dans un terminal casse les retours à la ligne. La solution robuste est d'écrire le message dans un fichier du repo via le tool `Write`, puis de fournir au dev une commande **mono-ligne** sans aucun caractère à échapper.
+**Doctrine de handoff** : coller une commande `git commit -m` multi-ligne dans un terminal casse les retours à la ligne. La solution robuste est d'écrire le message dans un fichier du dépôt via l'outil `Write`, puis de fournir au dev une commande **mono-ligne** sans aucun caractère à échapper.
 
-**Étape 1 — écrire le fichier** (via `Write` tool, **pas** `cat <<EOF` en bash) :
+**Étape 1 — écrire le fichier** (via l'outil `Write`, **pas** `cat <<EOF` en bash) :
 
 ```
-Path : <repo-root>/.commit-msg.tmp
+Chemin : <racine-du-dépôt>/.commit-msg.tmp
 Contenu :
 feat(subscriptions): permettre la création par lot
 
@@ -162,23 +162,17 @@ des imports manuels. Validation SIRET en amont.
 Refs: #228
 ```
 
-**Étape 2 — commande mono-ligne pour le dev** :
+**Étape 2 — commande mono-ligne pour le dev — méthode unique « toujours par fichier »** :
 
-**Cas A — peu de fichiers (≤ 10)** : énumérer en arguments.
-
-```bash
-git add app/controllers/subscriptions_controller.rb spec/requests/subscriptions_spec.rb config/routes.rb && git commit -F .commit-msg.tmp && rm .commit-msg.tmp
-```
-
-**Cas B — beaucoup de fichiers (> 10) ou chemins avec espaces/accents** : passer la liste via fichier avec `git add --pathspec-from-file=`. Écrire les chemins (un par ligne) dans `.commit-files.tmp` via le tool `Write`, puis :
+Toujours passer la liste des fichiers via fichier avec `git add --pathspec-from-file=` (jamais énumérer les chemins en arguments). Écrire les chemins (un par ligne) dans `.commit-files.tmp` via l'outil `Write`, puis :
 
 ```bash
 git add --pathspec-from-file=.commit-files.tmp && git commit -F .commit-msg.tmp && rm .commit-files.tmp .commit-msg.tmp
 ```
 
-Toujours **une seule ligne** sur le host, peu importe le nombre de fichiers. Pas d'escaping des chemins. Requiert Git ≥ 2.25.
+Toujours **une seule ligne** sur le host, peu importe le nombre de fichiers. Pas d'échappement des chemins (gère les espaces/accents). Requiert Git ≥ 2.25.
 
-**Cas C — éviter `git add .` ou `git add -A`** : risque d'inclure secrets / binaires / fichiers non intentionnels. Préférer A ou B.
+**Éviter `git add .` ou `git add -A`** : risque d'inclure secrets / binaires / fichiers non intentionnels. Toujours lister explicitement les chemins dans `.commit-files.tmp`.
 
 Le `&&` enchaîne stage → commit → cleanup ; si une étape plante, les suivantes ne tournent pas (les fichiers `.tmp` restent → permet de débugger sans réécrire le message).
 
@@ -221,19 +215,19 @@ feat(subscriptions): permettre la création par lot
 **Tu valides ce découpage ?**
 ```
 
-Le dev valide le découpage avant qu'on enchaîne sur 2 cycles `bin/ci` + clipboard.
+Le dev valide le découpage avant qu'on enchaîne sur 2 cycles `bin/ci` + passation copier-collable.
 
 ## Erreurs courantes à signaler
 
-- **Branche `main`/`master`** : avertir mais ne pas bloquer (`pre-bash` hook le fait déjà côté Claude). Suggérer une feature branch si pertinent.
+- **Branche `main`/`master`** : avertir mais ne pas bloquer (le hook `pre-bash` le fait déjà côté Claude). Suggérer une branche de fonctionnalité si pertinent.
 - **`git commit --amend`** : refuser sans validation explicite (rewrite l'historique). Si le commit est déjà push, c'est destructif.
 - **Fichiers `.env*`, `master.key`, `credentials.yml.enc`, `config/credentials/`** : refuser de les inclure (`pre-edit-secrets` hook le fait déjà mais double-check).
 - **Fichiers binaires lourds** (>1 MB) sans bonne raison : signaler.
 
 ## Anti-patterns Claude doit éviter
 
-- ❌ Lancer `git commit` directement (la médiation humaine impose le file-based handoff)
-- ❌ Donner une commande `git commit -m "..."` multi-ligne au dev — les retours à la ligne se cassent au paste. Utiliser `git commit -F .commit-msg.tmp` mono-ligne
+- ❌ Lancer `git commit` directement (la médiation humaine impose la passation par fichier)
+- ❌ Donner une commande `git commit -m "..."` multi-ligne au dev — les retours à la ligne se cassent au collage. Utiliser `git commit -F .commit-msg.tmp` mono-ligne
 - ❌ Mettre `Co-Authored-By: Claude` dans le message
 - ❌ Bypass `bin/ci` sans demande explicite du dev
 - ❌ Proposer un message en anglais
