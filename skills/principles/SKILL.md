@@ -1,34 +1,38 @@
 ---
 name: principles
-description: Apply core development principles (YAGNI > KISS > DRY > SOLID) before proposing any code or refactor. Use when designing new code, suggesting abstractions, extracting helpers/services, or reviewing whether a proposed change adds necessary complexity. Especially important to push back against over-abstraction reflexes (premature service objects, dependency injection without callers, generic configuration). Includes Rule of Three (don't extract on 2nd duplication) and Semantic DRY (coincidence of value ≠ same knowledge).
+description: Appliquer les principes de développement (YAGNI > KISS > DRY > SOLID) avant de proposer du code ou un refacto. À utiliser pour concevoir du nouveau code, proposer des abstractions, extraire des helpers/services, ou juger si un changement ajoute une complexité nécessaire. Particulièrement utile pour résister aux réflexes de sur-abstraction (service objects prématurés, injection de dépendances sans appelant, configuration générique). Inclut la Rule of Three (ne pas extraire à la 2e duplication) et le Semantic DRY (coïncidence de valeur ≠ même connaissance).
+globs:
+  - "app/**/*.rb"
+  - "lib/**/*.rb"
 ---
 
-# Development Principles
+# Principes de développement
 
-Apply these principles to all code produced. Priority when in conflict: **YAGNI > KISS > DRY > SOLID**.
+Appliquer ces principes à tout le code produit. Priorité en cas de conflit : **YAGNI > KISS > DRY > SOLID**.
 
-Why this order: a principle applied in isolation always sounds wise, but principles conflict. When
-they do, favor the one that keeps the codebase smaller and simpler *today*. Applying SOLID to code
-we don't yet need (YAGNI) produces abstractions that will be refactored anyway. Applying DRY to
-two blocks that look the same but mean different things (Semantic DRY) couples unrelated concepts
-and makes them harder to change. Simplicity first, structure only when it pays.
+Pourquoi cet ordre : un principe pris isolément semble toujours sage, mais les principes entrent en
+conflit. Quand c'est le cas, privilégier celui qui garde la codebase plus petite et plus simple
+*aujourd'hui*. Appliquer SOLID à du code dont on n'a pas encore besoin (YAGNI) produit des
+abstractions qui seront de toute façon refactorées. Appliquer DRY à deux blocs qui se ressemblent
+mais signifient des choses différentes (Semantic DRY) couple des concepts indépendants et les rend
+plus difficiles à faire évoluer. La simplicité d'abord, la structure seulement quand elle paie.
 
 ## SOLID
 
 ### S — Single Responsibility
 
-A class/method has one reason to change. A model does not make HTTP calls, a service does not render views.
+Une classe/méthode n'a qu'une seule raison de changer. Un model ne fait pas d'appels HTTP, un service ne rend pas de vues.
 
 ```ruby
-# BAD — model handles business logic AND external call
+# ❌ le model gère la logique métier ET l'appel externe
 class Subscription < ApplicationRecord
   def activate!
     update!(status: "active")
-    HubeeApi.new.post("/subscriptions", id: id) # not its job
+    HubeeApi.new.post("/subscriptions", id: id) # pas son rôle
   end
 end
 
-# GOOD — each class has one responsibility
+# ✅ chaque classe a une seule responsabilité
 class Subscription < ApplicationRecord
   def activate!
     update!(status: "active")
@@ -45,19 +49,19 @@ end
 
 ### O — Open/Closed
 
-Code is open for extension, closed for modification. Add behavior without touching existing code.
+Le code est ouvert à l'extension, fermé à la modification. Ajouter du comportement sans toucher au code existant.
 
 ```ruby
-# BAD — adding a format requires modifying the existing method
+# ❌ ajouter un format impose de modifier la méthode existante
 class ExportService
   def call(format)
     if format == :csv then export_csv
-    elsif format == :pdf then export_pdf # touching existing code
+    elsif format == :pdf then export_pdf # on touche au code existant
     end
   end
 end
 
-# GOOD — extend by adding a new class, not by modifying existing ones
+# ✅ on étend en ajoutant une nouvelle classe, pas en modifiant les existantes
 class CsvExportService
   def call = export_csv
 end
@@ -69,19 +73,19 @@ end
 
 ### L — Liskov Substitution
 
-Any subclass must be substitutable for its parent without altering expected behavior. Do not override a method to change its contract.
+Toute sous-classe doit pouvoir se substituer à sa classe parente sans altérer le comportement attendu. Ne pas redéfinir une méthode pour en changer le contrat.
 
 ```ruby
-# BAD — subclass raises where parent returns nil, breaking callers
+# ❌ la sous-classe lève là où le parent retourne nil, ce qui casse les appelants
 class ApiClient
-  def find(id) = nil # returns nil when not found
+  def find(id) = nil # retourne nil quand non trouvé
 end
 
 class StrictApiClient < ApiClient
-  def find(id) = raise NotFoundError # changes the contract
+  def find(id) = raise NotFoundError # change le contrat
 end
 
-# GOOD — subclass preserves the contract
+# ✅ la sous-classe préserve le contrat
 class CachedApiClient < ApiClient
   def find(id)
     cache.fetch(id) { super }
@@ -91,17 +95,17 @@ end
 
 ### I — Interface Segregation
 
-Prefer several focused modules over a fat one. A class should not be forced to implement methods it does not need.
+Préférer plusieurs modules ciblés à un seul module fourre-tout. Une classe ne devrait pas être forcée d'implémenter des méthodes dont elle n'a pas besoin.
 
 ```ruby
-# BAD — one fat concern forces all includers to carry unused methods
+# ❌ un concern fourre-tout force tous les includers à porter des méthodes inutilisées
 module Exportable
   def to_csv = ...
   def to_pdf = ...
   def to_xml = ...
 end
 
-# GOOD — focused modules, include only what you need
+# ✅ modules ciblés, on n'inclut que ce dont on a besoin
 module CsvExportable
   def to_csv = ...
 end
@@ -111,23 +115,23 @@ module PdfExportable
 end
 
 class Subscription < ApplicationRecord
-  include CsvExportable # only what is needed
+  include CsvExportable # uniquement ce qui est nécessaire
 end
 ```
 
 ### D — Dependency Inversion
 
-Depend on abstractions, not concrete implementations. Inject dependencies rather than instantiating them directly.
+Dépendre d'abstractions, pas d'implémentations concrètes. Injecter les dépendances plutôt que de les instancier directement.
 
 ```ruby
-# BAD — hard-coded dependency, impossible to stub in tests
+# ❌ dépendance codée en dur, impossible à stubber dans les tests
 class SubscriptionActivator
   def call(subscription)
     HubeeApi.new.post("/subscriptions", id: subscription.id)
   end
 end
 
-# GOOD — dependency injected, easy to swap or stub
+# ✅ dépendance injectée, facile à remplacer ou à stubber
 class SubscriptionActivator
   def initialize(api_client: HubeeApi.new)
     @api_client = api_client
@@ -138,111 +142,132 @@ class SubscriptionActivator
   end
 end
 
-# In spec/services/subscription_activator_spec.rb:
+# Dans spec/services/subscription_activator_spec.rb :
 # SubscriptionActivator.new(api_client: double("api", post: true))
 ```
 
-## YAGNI — You Aren't Gonna Need It
+Dépends de ce qui change moins souvent que toi : une dépendance est saine quand la cible est plus stable et plus abstraite. Trois leviers : (1) graphe acyclique — jamais de cycle ; (2) injecter les dépendances volatiles plutôt que les instancier en dur ; (3) isoler ce qui change le plus (API/client tiers) derrière une frontière. Concret-Rails : un service dépend des models ; un model ne dépend jamais d'un controller/service ; le code métier ne dépend pas directement d'un client HTTP tiers (cf. archi 3-couches api-client).
 
-Only implement what is needed now, not what might be needed someday.
+### Law of Demeter — ne parle qu'à tes amis immédiats
+
+N'invoque que des méthodes de tes voisins directs : pas de chaîne `order.customer.address.zip` qui traverse trois objets et te couple à leur structure interne.
 
 ```ruby
-# BAD — generic config system built "just in case"
+# ❌ chaîne qui traverse customer puis address
+order.customer.address.zip
+
+# ✅ l'objet expose ce dont l'appelant a besoin
+class Order
+  def customer_zip = customer.address_zip
+end
+order.customer_zip
+```
+
+## YAGNI
+
+N'implémenter que ce qui est nécessaire maintenant, pas ce dont on pourrait avoir besoin un jour.
+
+```ruby
+# ❌ système de config générique construit « au cas où »
 class Subscription < ApplicationRecord
   def self.find_with_options(id, cache: false, fallback: nil, locale: :fr)
-    # complex logic nobody asked for
+    # logique complexe que personne n'a demandée
   end
 end
 
-# GOOD — implement exactly what is needed
+# ✅ on implémente exactement ce qui est nécessaire
 class Subscription < ApplicationRecord
   def activate! = update!(status: "active")
 end
 ```
 
-## KISS — Keep It Simple, Stupid
+## KISS
 
-Favor the simplest solution that works, avoid accidental complexity.
+Privilégier la solution la plus simple qui fonctionne, éviter la complexité accidentelle.
 
 ```ruby
-# BAD — clever but hard to read
+# ❌ astucieux mais difficile à lire
 active_orgs = orgs.each_with_object({}) { |o, h| h[o.id] = o if o.status == "active" }
 
-# GOOD — simple and explicit
+# ✅ simple et explicite
 active_orgs = orgs.select(&:active?)
 ```
 
-## DRY — Don't Repeat Yourself
+## DRY
 
-Every piece of knowledge has a single, unambiguous representation — but without premature abstraction.
+Chaque élément de connaissance a une représentation unique et non ambiguë — mais sans abstraction prématurée.
 
 ```ruby
-# BAD — same logic duplicated in two places
+# ❌ même logique dupliquée à deux endroits
 def admin_label = "[#{siret}] #{name}"
 def export_label = "[#{siret}] #{name}"
 
-# GOOD — single source of truth
+# ✅ source de vérité unique
 def label = "[#{siret}] #{name}"
 alias admin_label label
 alias export_label label
 ```
 
-### Rule of Three — wait until you see it three times
+### Rule of Three — attendre de l'avoir vu trois fois
 
-Don't extract on the second occurrence. Duplication is cheap, wrong abstraction is expensive: once
-you've extracted a helper, every future variation has to either fit the helper or break it.
+Ne pas extraire à la deuxième occurrence. La duplication coûte peu, la mauvaise abstraction coûte
+cher : une fois un helper extrait, chaque variation future doit soit s'y conformer, soit le casser.
 
-Two occurrences may share shape by coincidence. A third occurrence is evidence of a pattern.
+Deux occurrences peuvent partager une forme par coïncidence. Une troisième occurrence est la preuve
+d'un motif.
 
 ```ruby
-# First use — just write it
+# Premier usage — on l'écrit, c'est tout
 def admin_label = "[#{siret}] #{name}"
 
-# Second use — duplicate, don't extract yet
+# Deuxième usage — on duplique, on n'extrait pas encore
 def export_label = "[#{siret}] #{name}"
 
-# Third use with the same shape — now extract
+# Troisième usage avec la même forme — maintenant on extrait
 def label = "[#{siret}] #{name}"
 alias admin_label label
 alias export_label label
 alias search_label label
 ```
 
-Corollary: if the third occurrence shows the shape is *almost* the same but with a twist
-(different separator, conditional field), that's a signal the abstraction is not ready — keep
-duplicating until the right shape emerges.
+Corollaire : si la troisième occurrence montre que la forme est *presque* la même mais avec une
+variante (séparateur différent, champ conditionnel), c'est un signal que l'abstraction n'est pas
+prête — continuer à dupliquer jusqu'à ce que la bonne forme émerge.
 
-### Semantic DRY — coincidence of value ≠ same knowledge
+### Semantic DRY — coïncidence de valeur ≠ même connaissance
 
-Two things that share the same value are **not** the same thing if they have distinct semantic
-roles. DRY applies to *knowledge* (one business rule → one place), not to structural coincidences.
+Deux choses qui partagent la même valeur ne sont **pas** la même chose si elles ont des rôles
+sémantiques distincts. DRY s'applique à la *connaissance* (une règle métier → un endroit), pas aux
+coïncidences structurelles.
 
-Before factoring two identical-looking values, ask: "do they represent the same concept?"
-If no → keep them separate, even if their current values match.
+Avant de factoriser deux valeurs qui se ressemblent, se demander : « représentent-elles le même
+concept ? » Si non → les garder séparées, même si leurs valeurs actuelles coïncident.
 
 ```ruby
-# BAD — same URL today, merged into one (false DRY)
-KEYCLOAK_URL = ENV.fetch("KEYCLOAK_BASE_URL") # used for both portal login and user management
+# ❌ même URL aujourd'hui, fusionnées en une seule (faux DRY)
+KEYCLOAK_URL = ENV.fetch("KEYCLOAK_BASE_URL") # utilisée à la fois pour le login portail et la gestion des utilisateurs
 
-# GOOD — two semantic roles, two variables, independently evolvable
-KEYCLOAK_OIDC_URL  = ENV.fetch("KEYCLOAK_BASE_URL")  # authenticates portal admins (OIDC)
-KEYCLOAK_ADMIN_URL = ENV.fetch("KEYCLOAK_BASE_URL")  # manages HubeeV1 end-user accounts
+# ✅ deux rôles sémantiques, deux variables, évoluables indépendamment
+KEYCLOAK_OIDC_URL  = ENV.fetch("KEYCLOAK_BASE_URL")  # authentifie les admins du portail (OIDC)
+KEYCLOAK_ADMIN_URL = ENV.fetch("KEYCLOAK_BASE_URL")  # gère les comptes utilisateurs finaux HubeeV1
 ```
 
-## Self-check before proposing code
+## Auto-vérification avant de proposer du code
 
-You pattern-match on "best practices" from training data and tend to **over-abstract**: service
-objects where a model method would do, dependency injection where hard-coding is fine, generic
-configuration where a literal works. These principles exist to push back against that reflex.
+Tu reconnais des « best practices » issues de tes données d'entraînement et tu as tendance à
+**sur-abstraire** : des service objects là où une méthode de model suffirait, de l'injection de
+dépendances là où le codage en dur convient, de la configuration générique là où une valeur
+littérale fait l'affaire. Ces principes existent pour contrer ce réflexe.
 
-Before proposing code, check yourself:
+Avant de proposer du code, vérifie-toi :
 
-- **YAGNI first.** Is this abstraction needed *today* by an actual caller, or does it prepare for
-  a hypothetical future? If future, cut it.
-- **KISS over SOLID.** A Rails controller calling `.update!` directly is often better than a
-  service object wrapping the same line. Resist the reflex to split.
-- **Rule of Three before DRY.** If only two places share a shape, don't factor them out yet.
-- **Semantic DRY.** Two values with the same string are not the same knowledge.
+- **YAGNI d'abord.** Cette abstraction est-elle nécessaire *aujourd'hui* par un appelant réel, ou
+  prépare-t-elle un futur hypothétique ? Si c'est pour le futur, supprime-la.
+- **KISS plutôt que SOLID.** Un controller Rails qui appelle `.update!` directement vaut souvent
+  mieux qu'un service object enrobant la même ligne. Résiste au réflexe de découper.
+- **Rule of Three avant DRY.** Si seulement deux endroits partagent une forme, ne les factorise pas
+  encore.
+- **Semantic DRY.** Deux valeurs ayant la même chaîne ne sont pas la même connaissance.
 
-If you're about to extract a class, add a strategy pattern, or introduce a gem to avoid three
-lines of duplication — push back against yourself and keep the simpler version.
+Si tu es sur le point d'extraire une classe, d'ajouter un strategy pattern ou d'introduire une gem
+pour éviter trois lignes de duplication — contre-toi et garde la version la plus simple.

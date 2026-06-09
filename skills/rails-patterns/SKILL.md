@@ -1,6 +1,6 @@
 ---
 name: rails-patterns
-description: Rails conventions, model patterns, controller patterns, service objects. Use when creating models, controllers, or Rails features.
+description: Conventions Rails : modèles, controllers, service objects. À utiliser pour créer des modèles, des controllers ou des fonctionnalités Rails.
 globs:
   - "app/models/**/*.rb"
   - "app/controllers/**/*.rb"
@@ -10,7 +10,7 @@ globs:
 
 # Rails Patterns Skill
 
-## Naming conventions
+## Conventions de nommage
 
 ```ruby
 # Classes — PascalCase
@@ -31,9 +31,25 @@ def active?; end
 def destroy!; end
 ```
 
-## Model Patterns
+### Méthodes de classe
 
-### Standard Model Structure
+Déclarer les méthodes de classe dans un bloc `class << self` (toujours, même pour une seule), avec la visibilité (`private`/`public`) regroupée dans le bloc.
+
+```ruby
+class Foo
+  class << self
+    def build = new
+
+    private
+
+    def default_options = {}
+  end
+end
+```
+
+## Conventions de modèles
+
+### Structure standard d'un modèle
 
 ```ruby
 class Subscription < ApplicationRecord
@@ -54,15 +70,15 @@ class Subscription < ApplicationRecord
   scope :by_organization, ->(org_id) { where(organization_id: org_id) }
   scope :recent, -> { order(created_at: :desc) }
 
-  # === Callbacks (use sparingly) ===
+  # === Callbacks (à utiliser avec parcimonie) ===
   after_create :notify_organization
 
-  # === Class Methods ===
+  # === Méthodes de classe ===
   def self.for_dashboard
     includes(:organization, :process).active.recent.limit(10)
   end
 
-  # === Instance Methods ===
+  # === Méthodes d'instance ===
   def activate!
     update!(status: "active", activated_at: Time.current)
   end
@@ -107,9 +123,9 @@ class Subscription < ApplicationRecord
 end
 ```
 
-## Controller Patterns
+## Conventions de controllers
 
-### RESTful Controller
+### Controller RESTful
 
 ```ruby
 class SubscriptionsController < ApplicationController
@@ -175,7 +191,7 @@ end
 
 ## Service Objects
 
-For complex business logic that doesn't fit in models:
+Pour la logique métier complexe qui n'a pas sa place dans les modèles :
 
 ```ruby
 # app/services/subscription_creator.rb
@@ -220,7 +236,7 @@ class SubscriptionCreator
   end
 end
 
-# Usage in controller
+# Utilisation dans un controller
 def create
   @subscription = SubscriptionCreator.new(
     organization: Organization.find(params[:organization_id]),
@@ -296,7 +312,7 @@ end
 
 ## Query Objects
 
-For complex queries:
+Pour les requêtes complexes :
 
 ```ruby
 # app/queries/subscriptions_query.rb
@@ -333,43 +349,43 @@ class SubscriptionsQuery
 end
 ```
 
-## Variable Reassignment & Method Chaining
+## Réaffectation de variables et chaînage de méthodes
 
-### Avoid reassigning the same variable to successive values
+### Éviter de réaffecter la même variable à des valeurs successives
 
-Prefer chaining or extracting a private method — successive reassignment makes the data flow hard to follow.
+Préférer le chaînage ou l'extraction d'une méthode privée — la réaffectation successive rend le flux de données difficile à suivre.
 
 ```ruby
-# BAD — users reassigned, data flow is hard to follow
+# ❌ users réaffecté, le flux de données est difficile à suivre
 users = cached_organization_users.select { |u| u.has_process_access?(code) }
 users = users.select { |u| u.email&.start_with?(query) } if query
 
-# GOOD — chained, linear flow
+# ✅ chaîné, flux linéaire
 cached_organization_users
   .select { |u| u.has_process_access?(code) }
   .select { |u| query.blank? || u.email&.start_with?(query) }
 ```
 
-### Chain instead of storing intermediate results
+### Chaîner plutôt que stocker des résultats intermédiaires
 
 ```ruby
-# BAD — unnecessary intermediate variables
+# ❌ variables intermédiaires inutiles
 filtered = subscriptions.select(&:active?)
 names = filtered.map(&:name)
 result = names.sort
 
-# GOOD — chained
+# ✅ chaîné
 subscriptions.select(&:active?).map(&:name).sort
 ```
 
-### Conditional chaining via `.then` or private methods
+### Chaînage conditionnel via `.then` ou des méthodes privées
 
 ```ruby
-# BAD — condition that reassigns
+# ❌ condition qui réaffecte
 result = collection.select { |x| x.valid? }
 result = result.first(10) if paginate?
 
-# GOOD — named private method
+# ✅ méthode privée nommée
 def filtered_collection
   collection
     .select(&:valid?)
@@ -379,10 +395,10 @@ end
 
 ## Linting
 
-StandardRB is the single source of truth (no RuboCop, no debates). The plugin's `post-edit-standardrb` hook runs it automatically after every Edit on `.rb` files.
+StandardRB est l'unique source de vérité (pas de RuboCop, pas de débats). Le hook `post-edit-standardrb` du plugin le lance automatiquement après chaque Edit sur un fichier `.rb`.
 
 ```bash
-# Manual check / fix
+# Vérification / correction manuelle
 bundle exec standardrb
 bundle exec standardrb --fix
 ```
