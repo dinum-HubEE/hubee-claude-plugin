@@ -106,13 +106,11 @@ rg "\.my_method\b" --type ruby
 rg "\.my_method!" --type ruby   # variante !
 ```
 
-### Routes spécifiques au projet HubEE
+### Points d'entrée métier : propres à l'app
 
-Pour le portail admin V1, points d'entrée typiques :
-- `/sessions/*` → auth Keycloak (cf. skill `authentication`)
-- `/organizations/*` → CRUD organizations (SIRET-based)
-- `/processes/*` → CRUD processes
-- `/subscriptions/*` → CRUD subscriptions (lie Organization à Process)
+Les routes/ressources métier dépendent de l'app (le plugin est cross-app). Pour les
+découvrir : `bin/rails routes` + le `CLAUDE.md` de l'app. Note : toutes les apps
+HubEE ne sont pas en Rails — ailleurs, la méthode de navigation est à adapter.
 
 ## Convention de structure HubEE
 
