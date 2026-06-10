@@ -1,6 +1,6 @@
 ---
 name: rails-patterns
-description: Conventions Rails : modèles, controllers, service objects. À utiliser pour créer des modèles, des controllers ou des fonctionnalités Rails.
+description: Conventions Rails : modèles, controllers, interactors (logique métier). À utiliser pour créer des modèles, des controllers ou des fonctionnalités Rails.
 globs:
   - "app/models/**/*.rb"
   - "app/controllers/**/*.rb"
@@ -189,67 +189,115 @@ class SubscriptionsController < ApplicationController
 end
 ```
 
-## Service Objects
+## Interactors & Organizers (logique métier)
 
-Pour la logique métier complexe qui n'a pas sa place dans les modèles :
+La logique métier multi-étapes utilise la gem [interactor](https://github.com/collectiveidea/interactor) (`gem "interactor"`). Pas de service objects PORO ad-hoc pour la logique métier.
+
+**Frontière — où mettre la logique ?**
+- ✅ Une étape simple → méthode de modèle (YAGNI, voir skill `principles`)
+- ✅ Plusieurs étapes avec échec possible → Organizer + Interactors dans `app/interactors/`
+- ✅ Client API externe / adapter d'infrastructure → `app/services/<service>/` (voir skills `api-client` et `authentication`)
+
+### Organizer
+
+Un organizer orchestre des interactors atomiques, exécutés dans l'ordre. Il ne contient aucune logique lui-même.
 
 ```ruby
-# app/services/subscription_creator.rb
-class SubscriptionCreator
-  def initialize(organization:, process:, user:)
-    @organization = organization
-    @process = process
-    @user = user
+# app/interactors/data_packages/transmit.rb
+module DataPackages
+  class Transmit
+    include Interactor::Organizer
+
+    organize Transmit::ValidateTransmission,
+      Transmit::ResolveRecipients,
+      Transmit::CreateNotifications,
+      Transmit::TransitionToTransmitted
   end
-
-  def call
-    Subscription.transaction do
-      subscription = create_subscription
-      create_event(subscription)
-      notify_stakeholders(subscription)
-      subscription
-    end
-  end
-
-  private
-
-  attr_reader :organization, :process, :user
-
-  def create_subscription
-    Subscription.create!(
-      organization: organization,
-      process: process,
-      created_by: user
-    )
-  end
-
-  def create_event(subscription)
-    Event.create!(
-      subscription: subscription,
-      event_type: "created",
-      user: user
-    )
-  end
-
-  def notify_stakeholders(subscription)
-    NotificationJob.perform_later(subscription.id)
-  end
-end
-
-# Utilisation dans un controller
-def create
-  @subscription = SubscriptionCreator.new(
-    organization: Organization.find(params[:organization_id]),
-    process: Process.find(params[:process_id]),
-    user: current_user
-  ).call
-
-  redirect_to @subscription
-rescue ActiveRecord::RecordInvalid => e
-  @subscription = e.record
-  render :new, status: :unprocessable_entity
 end
 ```
+
+### Interactor
+
+Chaque interactor = une étape atomique. Le `context` transporte les données entre étapes ; `context.fail!` interrompt la chaîne.
+
+```ruby
+# app/interactors/data_packages/transmit/validate_transmission.rb
+module DataPackages
+  class Transmit
+    class ValidateTransmission
+      include Interactor
+
+      def call
+        context.fail!(error: :not_draft) unless data_package.draft?
+        context.fail!(error: :no_completed_attachments) unless data_package.has_completed_attachments?
+      end
+
+      private
+
+      def data_package
+        context.data_package
+      end
+    end
+  end
+end
+```
+
+### Rollback
+
+Si une étape échoue via `context.fail!`, `rollback` est appelé sur les étapes déjà exécutées (en ordre inverse). À définir sur chaque interactor qui crée ou modifie des données.
+
+```ruby
+def call
+  context.notifications = create_notifications
+end
+
+def rollback
+  context.notifications.each(&:destroy)
+end
+```
+
+### Usage dans un controller
+
+```ruby
+def create
+  result = DataPackages::Transmit.call(data_package: @data_package)
+
+  if result.success?
+    render "api/v1/data_packages/show", status: :ok
+  else
+    render json: error_response(result.error), status: :unprocessable_content
+  end
+end
+```
+
+### Specs
+
+Un fichier de spec par interactor et par organizer (`spec/interactors/...`).
+
+```ruby
+RSpec.describe DataPackages::Transmit::ValidateTransmission do
+  describe ".call" do
+    subject(:result) { described_class.call(data_package: data_package) }
+
+    context "when package is not draft" do
+      let(:data_package) { create(:data_package, :transmitted) }
+
+      it { is_expected.to be_failure }
+
+      it "returns not_draft error" do
+        expect(result.error).to eq(:not_draft)
+      end
+    end
+  end
+end
+```
+
+**Règles** :
+- ✅ Arborescence : `app/interactors/<ressource>/<action>.rb` (organizer) + `app/interactors/<ressource>/<action>/<étape>.rb` (steps)
+- ✅ Erreurs symboliques : `context.fail!(error: :not_draft)` — le controller traduit en message utilisateur/API
+- ✅ Specs : `described_class.call(...)`, matchers `be_success` / `be_failure`, vérifier `result.error`
+- ❌ Pas de service object PORO pour la logique métier (les `app/services/` existants sont des adapters API)
+- ❌ Pas de logique métier dans l'organizer (il ne fait qu'`organize`)
 
 ## Rescue scope
 
