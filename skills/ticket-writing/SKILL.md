@@ -51,7 +51,7 @@ moyen) et le bénéfice concret. Y glisser l'urgence/échéance s'il y en a une.
 - <Vérifiable, orienté résultat et métier (« opération tracée », pas « via JobReport »).>
 - <Une capacité, pas une exécution complète one-shot : « les dossiers éligibles finissent traités », pas « tout est purgé maintenant ».>
 
-**Contexte —** *(facultatif)* <Faits sourcés non contraignants qui dé-risquent ou cadrent, et pièges connus, ex. « aucune FK entrante vers ces tables ». ⚠️ Marquer ce qui reste à confirmer.>
+**Contexte —** *(facultatif)* <Faits sourcés, énoncés en **constat** au présent (« actuellement, aucune FK n'entre vers ces tables »), jamais comme feu vert à une solution (« … donc on peut faire un TRUNCATE »). Pièges connus inclus. ⚠️ Marquer ce qui reste à confirmer.>
 
 **Dépendances / Liens —** <Tickets liés (#xxx), commentaire shaping, atelier.>
 ```
