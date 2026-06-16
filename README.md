@@ -9,8 +9,6 @@ claude plugin marketplace add dinum-HubEE/hubee-claude-plugin
 claude plugin install hubee-claude-plugin@hubee-claude-plugin
 ```
 
-Pour les devs HubEE qui utilisent [`hubee-agent-vm-config`](https://gitlab.hubee.numerique.gouv.fr/hubee/hubee-agent-vm-config), c'est automatique au `agent-vm setup`.
-
 ## Mise à jour
 
 Les 4 plugins HubEE (`hubee-claude-plugin`, `superpowers@claude-plugins-official`, `dsfr-skill@dsfr-skill`, `claude-hud@claude-hud`) sont mis à jour **automatiquement à chaque `agent-vm claude`**. Aucune action manuelle nécessaire. Pas de bump de version manuel : le plugin n'a pas de champ `version`, chaque commit SHA sur `main` est une nouvelle version (cf. [plugins-reference#version-management](https://code.claude.com/docs/en/plugins-reference#version-management)).
@@ -23,8 +21,6 @@ claude plugin update superpowers@claude-plugins-official     2>/dev/null || true
 claude plugin update dsfr-skill@dsfr-skill                   2>/dev/null || true
 claude plugin update hubee-claude-plugin@hubee-claude-plugin 2>/dev/null || true
 ```
-
-(défini dans [`hubee-agent-vm-config`](https://gitlab.hubee.numerique.gouv.fr/hubee/hubee-agent-vm-config))
 
 Si tu veux forcer un refresh **en cours de session** (sans attendre le prochain lancement) :
 
