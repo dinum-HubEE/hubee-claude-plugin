@@ -95,6 +95,8 @@ class Subscription < ApplicationRecord
 end
 ```
 
+> **Valeur à liste fermée** (`select`, `enum`) : préférer `validates inclusion:` (erreur explicite) au filtrage silencieux — l'utilisateur doit savoir que sa saisie est rejetée, pas la voir disparaître.
+
 ### State Machine (AASM)
 
 ```ruby
