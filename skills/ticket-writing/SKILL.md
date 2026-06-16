@@ -8,8 +8,8 @@ description: Rédiger ou relire un ticket du suivi-projet HubEE (issues / work i
 > **Principe directeur** : un ticket s'arrête au **QUOI** + **POURQUOI** + **DANS QUELLES LIMITES**. Jamais le **COMMENT**. Le comment, c'est la planification (skill `plan`), faite par la personne — ou Claude — qui réalise.
 
 Un bon ticket se lit **en couches**, selon ce que le lecteur cherche — la distinction n'est pas *humain vs Claude*, mais *valider l'intention vs planifier la réalisation* :
-- **Valider l'intention** (relecteur, métier, lead) : le haut suffit. *Titre → Problème → Résultat → DoD* répondent à « est-ce le bon problème, bien cadré ? » sans lire le détail.
-- **Planifier la réalisation** (le réalisateur, humain *ou* Claude) : *Contraintes*, *Périmètre* et *Ce qui est établi* donnent de quoi planifier sans deviner ce qui est négociable. Ce sont les entrées de la skill `plan`, le DoD devenant les critères de succès.
+- **Valider l'intention** (relecteur, métier, lead) : *Titre + Le problème* suffisent — le récit dit la situation, l'outcome visé et le bénéfice, donc « est-ce le bon problème, bien cadré ? » sans lire le détail.
+- **Planifier la réalisation** (le réalisateur, humain *ou* Claude) : *Hors périmètre*, *Contraintes* et *Critères d'acceptation* (+ le contexte) donnent de quoi planifier sans deviner ce qui est négociable. Ce sont les entrées de la skill `plan`, les critères d'acceptation devenant les critères de succès.
 
 Tout le monde peut tout lire ; la mise en couches sert juste à valider vite sans tout lire. Le ticket ouvre un espace de solutions **borné** (par les contraintes) sans le réduire à un point : choisir le mécanisme reste le travail du réalisateur.
 
@@ -32,40 +32,38 @@ Exemples de phrases qui **choisissent** une solution (à sortir) : un verbe tech
 
 ## Le gabarit
 
-Toutes les sections ne sont pas obligatoires : garder celles qui portent de l'information. Ordre = ordre de lecture pour l'humain.
+Le ticket s'ouvre sur **Le problème** (un récit court : situation, outcome visé, bénéfice). Suivent des blocs courts et étiquetés — **Hors périmètre**, **Contraintes**, **Critères d'acceptation**, **Contexte** — chacun avec un seul rôle. Garder ce qui porte de l'information.
 
 ```markdown
-# <Titre : le résultat ou le problème, jamais le mécanisme>
+# <Titre : le problème, jamais le résultat ni le mécanisme>
 
-**Problème —** <Le constat, la douleur, l'enjeu. Pourquoi ça vaut un ticket maintenant.>
+**Le problème —** <Récit court (2-4 phrases) : la situation, qui en souffre, pourquoi
+ça vaut un ticket maintenant. Inclure l'outcome visé (l'état final observable, pas un
+moyen) et le bénéfice concret. Y glisser l'urgence/échéance s'il y en a une.>
 
-**Résultat attendu —** <L'état final observable, exprimé en outcome. Pas un moyen.>
+**Hors périmètre —** <Ce qui pourrait être confondu mais ne fait pas partie du ticket.>
 
 **Contraintes & invariants —**
-- <Ce que TOUTE solution doit respecter (RGPD, pas de régression prod, traçabilité…).>
-- <Un invariant = une borne de l'espace des solutions, pas un choix de solution.>
-- *[fait]* <Fait technique qui contraint la solution, ex : « aucune FK entrante ».>
+- <Ce que TOUTE solution doit respecter — **uniquement métier / régulatoire** (RGPD, pas de blocage de la production, traçabilité…). Un fait technique n'est pas un invariant : il va dans le contexte.>
+- <Un invariant borne sans choisir : « ne jamais supprimer un dossier qui n'est pas `CLOSED` », pas « re-vérifier dans la même transaction ».>
 
-**Périmètre —** Inclus : <…>. Exclu : <… ce qui pourrait être confondu mais ne fait pas partie>.
+**Critères d'acceptation —**
+- <Vérifiable, orienté résultat et métier (« opération tracée », pas « via JobReport »).>
+- <Une capacité, pas une exécution complète one-shot : « les dossiers éligibles finissent traités », pas « tout est purgé maintenant ».>
 
-**Ce qui est établi** *(source + date — contexte non contraignant) —*  *(section optionnelle, voir règles ci-dessous)*
-- <Fait vérifié, neutre, qui dé-risque ou cadre.>
-- ⚠️ À confirmer : <ce qui reste incertain>.
-
-**DoD —**
-- <Critère vérifiable, orienté résultat (« opération tracée », pas « via JobReport »).>
+**Contexte —** *(facultatif)* <Faits sourcés non contraignants qui dé-risquent ou cadrent, et pièges connus, ex. « aucune FK entrante vers ces tables ». ⚠️ Marquer ce qui reste à confirmer.>
 
 **Dépendances / Liens —** <Tickets liés (#xxx), commentaire shaping, atelier.>
 ```
 
 ### Détails qui font la différence
 
-| Section | À faire | À éviter |
+| Élément | À faire | À éviter |
 |---|---|---|
-| **Titre** | Décrit le résultat (« Éliminer les lignes mortes des `_archive` ») | Le mécanisme (« Purge one-shot TRUNCATE ») |
-| **Résultat attendu** | Outcome observable (« les tables ne conservent plus de données > 1 an ») | Un moyen déguisé en objectif (« lancer un TRUNCATE ») |
-| **Contraintes** | Bornes que la solution doit respecter | La solution elle-même |
-| **DoD** | Vérifiable et orienté résultat | Imposer l'outil (« vérifié via la commande X ») |
+| **Titre** | Décrit le problème (« La base `_archive` grossit sans limite ») | Le résultat (« Éliminer les lignes mortes des `_archive` ») ou le mécanisme (« Purge one-shot TRUNCATE ») |
+| **Le problème** | Récit court : situation + outcome observable (« les tables ne conservent plus de données > 1 an ») + bénéfice (« moins de sollicitations support ») | Un moyen déguisé en objectif (« lancer un TRUNCATE »), ou re-décrire la fonctionnalité au lieu du bénéfice |
+| **Contraintes** | Bornes **métier / régulatoires** uniquement | La solution elle-même, ou un invariant technique (→ contexte) |
+| **Critères d'acceptation** | Couverture (« les éligibles finissent traités ») **et** sûreté (« rien d'autre n'est touché »), vérifiables | N'exiger qu'une face : oublier la couverture (une purge qui ne fait rien « passe »), ou imposer le one-shot |
 
 ## L'investigation : où la mettre
 
@@ -88,35 +86,42 @@ L'analyse déjà faite (preuves, lecture de code, volumétrie) a de la valeur : 
 
 **Après** — même besoin, mais borné au problème :
 
-> **Purger les télédossiers clos depuis plus d'un an (purge totale RGPD)**
+> **Des télédossiers clos depuis plus d'un an subsistent (non-conformité RGPD niveau 2)**
 >
-> **Problème —** Obligation RGPD niveau 2 : un télédossier doit être entièrement supprimé 1 an après son passage à `CLOSED`. Aujourd'hui ces dossiers clos depuis > 1 an subsistent (DB **et** S3). *Priorité demandée (Laetitia, 21/05).*
+> **Le problème —** Le RGPD niveau 2 impose de supprimer entièrement un télédossier 1 an après sa clôture. Aujourd'hui ce n'est pas fait : des dossiers clos depuis plus d'un an restent en base et sur S3. On veut qu'ils disparaissent réellement — données et pièces — pour lever le risque juridique et cesser de stocker ce qu'on aurait dû effacer. *Prioritaire (demande Laetitia, 21/05).*
 >
-> **Résultat attendu —** Plus aucune donnée rattachée à un télédossier `CLOSED` depuis > 1 an ne subsiste — métadonnées, cases, events, messages usager, PJ, notifications, applicant orphelin — ni en DB ni en S3.
+> **Hors périmètre —** La purge partielle (niveau 1) ; les dossiers non clos.
 >
 > **Contraintes & invariants —**
-> - Suppression conforme RGPD niveau 2 : *rien* ne doit subsister (DB + S3).
-> - **Ne jamais purger un dossier qui n'est plus `CLOSED` au moment de la suppression** (un case peut être rouvert entre la sélection et la purge).
-> - Opération tracée, supervisée, avec garde-fous (pas de blocage prod).
+> - Conformité RGPD niveau 2 : *rien* ne doit subsister (DB + S3).
+> - **Ne jamais supprimer un dossier qui n'est pas `CLOSED` au moment de la suppression.**
+> - Opération tracée, supervisée, sans blocage de la production.
 >
-> **Périmètre —** Inclus : cases `CLOSED` > 1 an, tous `process_code`. Exclu : purge partielle (niveau 1), cases non clos.
+> **Critères d'acceptation —**
+> - Tout dossier éligible (`CLOSED` > 1 an) et ses pièces *finissent* supprimés par la purge récurrente — aucun éligible ignoré.
+> - Tout dossier supprimé était bien `CLOSED` > 1 an (pas de suppression à tort).
+> - Suppression effective DB + S3.
+> - Le volume traité par passage est paramétrable par `process_code`.
+> - Purge récurrente active et supervisée.
 >
-> **Ce qui est établi** *(— contexte) —* une purge totale (> X années) existe déjà avec son module de garde-fous → réutilisable. ⚠️ Volumétrie à calibrer par `process_code` avant lancement.
->
-> **DoD —** aucun télédossier `CLOSED` > 1 an ne subsiste (DB + S3) · purge récurrente active · supervision en place.
+> **Contexte —** Une purge totale (> X années) existe déjà avec ses garde-fous. ⚠️ Volumétrie réelle à confirmer par `process_code`.
 
-Le geste à reproduire : « re-vérification dans la même transaction que le `DELETE` » est une *solution* ; l'**invariant** derrière — « ne jamais purger un dossier qui n'est plus `CLOSED` » — reste, lui, dans le ticket. Pour chaque détail technique, remonter à la contrainte qu'il protège : garder la borne, lâcher le mécanisme.
+Le geste à reproduire : « re-vérification dans la même transaction que le `DELETE` » est une *solution* ; l'**invariant** derrière — « ne jamais supprimer un dossier qui n'est pas `CLOSED` » — reste, lui, dans le ticket. Pour chaque détail technique, remonter à la contrainte qu'il protège : garder la borne, lâcher le mécanisme.
+
+> ⚠️ Le piège du one-shot : « plus aucun télédossier `CLOSED` > 1 an ne subsiste » (au présent) imposerait de vider tout le stock d'un coup. La couverture reste exigée, mais **au futur** : « les éligibles *finissent* supprimés par la purge récurrente — aucun ignoré ». On garantit que rien n'est oublié sans imposer le rythme (d'un coup ou par lots sur plusieurs mois — choix de réalisation).
 
 ## Erreurs courantes
 
 | Erreur | Correction |
 |---|---|
-| Le titre nomme le mécanisme | Le titre nomme le résultat ou le problème |
+| Le titre nomme le résultat ou le mécanisme | Le titre nomme le problème |
 | « Objectif : faire X » où X est un moyen | Reformuler en état final observable |
 | L'investigation justifie une solution | La reformuler en fait neutre + sourcé ; sortir la conclusion-solution |
-| DoD impose un outil/une commande | DoD vérifiable mais orienté résultat |
+| Un invariant technique présenté comme intouchable | Le passer en fait sourcé dans la note de contexte (souvent négociable selon l'urgence) |
+| Critère d'acceptation imposant un outil/une commande | Critère vérifiable mais orienté résultat |
+| Critère exigeant une exécution complète (« tout est purgé ») | Porter sur ce qui est produit, pas sur l'épuisement du stock (par lots possible) |
 | Shaping/historique long dans le corps | Le déplacer en commentaire « Contexte / Historique » |
-| Pas de contraintes → Claude doit deviner ce qui est négociable | Expliciter les invariants : c'est ce qui rend la planif possible |
+| Inventer des contraintes pour remplir la section | S'il n'y a pas de contrainte métier, c'est légitime de ne pas en mettre ; n'expliciter que les invariants réels |
 
 ## Articulation avec les autres skills
 
