@@ -333,6 +333,35 @@ rescue HubApi::Client::Error
 end
 ```
 
+### Double filet nil
+
+Quand les appelants gardent déjà contre nil avec `x && f(x)`, un `rescue TypeError` dans la fonction
+ne peut jamais être atteint. C'est du code mort.
+
+Pour les fonctions utilitaires de robustesse (préfixe `safe_`, parsers, formateurs), la fonction est
+défensive : elle accepte nil, et on retire les `&&` chez tous les appelants. C'est leur contrat :
+absorber toute entrée sans exploser.
+
+```ruby
+# ❌ double filet — rescue TypeError inatteignable, && superflus
+item["started_at"] && safe_parse_time(item["started_at"])
+
+def safe_parse_time(str)
+  Time.zone.parse(str)
+rescue ArgumentError, TypeError   # TypeError ne peut jamais être levé ici
+  nil
+end
+
+# ✅ la fonction est défensive, les appelants s'en remettent à elle
+safe_parse_time(item["started_at"])
+
+def safe_parse_time(str)
+  Time.zone.parse(str)
+rescue ArgumentError, TypeError
+  nil
+end
+```
+
 ## Display methods pour données API externes
 
 Quand on affiche des données issues d'une API externe, traiter tous les champs de façon identique : implémenter des méthodes `display_*` avec fallback pour chaque champ, sans conditions asymétriques.
@@ -358,6 +387,34 @@ def label
   parts << "branche #{branch_code}" if branch_code.present?
   parts.join(", ")
 end
+```
+
+## Fonctions pures
+
+Quand une méthode est une fonction générique (parser, formateur, utilitaire de robustesse) sans lien
+avec la logique métier d'un objet particulier, la déclarer avec `def self.` dans un module. Ce type
+de logique n'appartient à aucune instance — l'exposer via `include` lui prête une appartenance
+qu'elle n'a pas.
+
+```ruby
+# ❌ mixée par include — le spec doit instancier une classe fantôme
+module HubApi::TimeParser
+  def safe_parse_time(str) = ...
+end
+# spec : Class.new { include HubApi::TimeParser }.new.safe_parse_time("...")
+
+# ✅ fonction de module — appelable directement
+module HubApi
+  module TimeParser
+    def self.parse(str)
+      Time.zone.parse(str)
+    rescue ArgumentError
+      nil
+    end
+  end
+end
+# spec    : HubApi::TimeParser.parse("2024-13-01")
+# appelant: HubApi::TimeParser.parse(item["started_at"])
 ```
 
 ## Query Objects

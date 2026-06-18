@@ -261,3 +261,33 @@ La couverture de branches est suivie mais pas encore imposée comme minimum.
 - Les gems tierces (faire confiance à leur suite de tests)
 - Les délégations simples (`delegate :name, to: :organization`)
 - Les méthodes privées directement — tester via l'interface publique
+- Les chemins inatteignables depuis les appelants réels
+
+### Fausse couverture : tester un chemin mort
+
+Un test peut passer sans jamais toucher le code qu'il prétend couvrir, donnant une fausse impression
+de robustesse. Toujours vérifier que le cas testé peut réellement atteindre le `rescue` ou la
+branche défensive depuis les appelants réels.
+
+Exemple avec `Time.zone.parse` :
+
+| Entrée testée | Ce qui se passe réellement |
+|---|---|
+| `"not-a-date"`, `""` | retourne `nil` nativement — le `rescue` n'est jamais touché |
+| `nil` | lève `TypeError` — mais si tous les appelants font `&&`, chemin inatteignable |
+| `"2024-13-01"` | lève `ArgumentError` — le seul vrai risque depuis une API externe |
+
+```ruby
+# ❌ teste un chemin mort (nil filtré par && chez tous les appelants)
+it "returns nil for nil" do
+  expect(described_class.safe_parse_time(nil)).to be_nil
+end
+
+# ✅ teste la vraie exception possible
+it "returns nil for an out-of-range date string" do
+  expect(described_class.safe_parse_time("2024-13-01")).to be_nil
+end
+```
+
+Avant d'écrire un cas de test pour un `rescue`, se demander : **cette exception peut-elle réellement
+être levée depuis les appelants réels, compte tenu des gardes existants ?**
