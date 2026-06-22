@@ -105,6 +105,23 @@ ActiveRecord::StatementInvalid: SQLite3::SQLException: no such column
 
 Fix: Run migrations or add column
 
+### Unpermitted Parameters
+
+```
+ActionController::UnpermittedParameters
+```
+
+`action_on_unpermitted_parameters` vaut `:raise` en test et développement : un champ de formulaire **soumis mais retiré du `permit`** fait planter, pas juste un log. Trois sorties selon l'intention :
+
+- param légitime → l'ajouter au `permit` ;
+- reçu mais non voulu dans le form object → `.except(:x)` après le `permit` ;
+- champ purement client (aide de saisie pilotée par Stimulus, jamais exploité côté serveur) → ne pas le soumettre via `name: nil` (Rails omet alors l'attribut `name`, le champ n'est pas envoyé).
+
+```erb
+<%# champ d'aide à la saisie non soumis : le name est omis %>
+<%= f.text_field :organization_name, name: (submitted ? f.field_name(:organization_name) : nil) %>
+```
+
 ### StandardRB Violations
 
 ```bash
