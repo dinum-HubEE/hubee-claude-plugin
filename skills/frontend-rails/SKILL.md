@@ -113,6 +113,23 @@ Ne passer que ce qui varie réellement entre les usages. Les champs, namespaces 
 <%# locals: (f:, search_form:, name_field:, siret_field:, label_name:, name_col_class: "fr-col-12 fr-col-md-6") %>
 ```
 
+### Pas de dispatch dynamique dans un partial
+
+Quand un même partial est réellement réutilisé par plusieurs écrans avec des champs nommés différemment, l'appelant — qui connaît son form object — passe la valeur et les erreurs en locals explicites. Pas de `public_send` dans la vue : contrat clair, zéro dispatch dynamique, lisible par Brakeman.
+
+```erb
+<%# ❌ dispatch dynamique dans la vue %>
+<%= f.text_field name_field, value: search_form.public_send(name_field) %>
+<% if search_form.errors[name_field].any? %> … <% end %>
+
+<%# ✅ l'appelant passe valeur + erreurs explicitement %>
+<%# locals: (f:, name_field:, name_field_value:, name_field_errors: [], …) %>
+<%= f.text_field name_field, value: name_field_value %>
+<% if name_field_errors.any? %> … <% end %>
+```
+
+Cela augmente le nombre de locals : acceptable uniquement quand la réutilisation cross-écran est réelle — sinon, garder un partial spécifique (voir « Minimiser les locals »).
+
 ## Sémantique des vues
 
 Préférer les méthodes du form object aux variables d'instance brutes pour exprimer l'intention. Les vues n'ont pas à interpréter une valeur `nil` comme un signal d'état — c'est au form object d'exposer une méthode sémantique (`search_requested?`, `submitted?`, etc.).
@@ -177,6 +194,10 @@ All interfaces must be accessible:
 - Explicit labels for forms
 
 The plugin `dsfr-skill` has detailed RGAA component guidance — invoke it for component-level accessibility decisions.
+
+### Combobox : `aria-expanded` dynamique
+
+Sur un `role="combobox"`, `aria-expanded` doit refléter l'état réel de la dropdown (`true` quand des suggestions sont affichées, `false` sinon), jamais codé en dur. Le mettre à jour côté Stimulus au chargement du frame de suggestions (`turbo:frame-load`).
 
 ## What NOT to do
 
