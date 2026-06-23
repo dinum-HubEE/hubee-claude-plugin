@@ -191,6 +191,26 @@ class SubscriptionsController < ApplicationController
 end
 ```
 
+## Form objects
+
+Un form object ne porte que ce qui **pilote l'opération**. Faire transiter une donnée purement d'**affichage**, redondante avec un identifiant déjà présent, est un smell : deux infos pour une même entité → risque de désync et état UI modélisé côté serveur.
+
+```ruby
+# Contexte : le SIRET identifie l'organisation ; le serveur re-résout le nom
+# via HubApi::Organization.find. organization_name ne sert qu'à un message.
+
+# ❌ le nom (affichage) transite et est validé alors qu'il est redondant
+#    avec le SIRET, seul identifiant réellement nécessaire pour créer l'objet
+validates :siret, presence: true, unless: -> { organization_name.present? }
+validate  :organization_selected   # vérifie la cohérence du couple nom + siret
+
+# ✅ le SIRET identifie l'organisation ; sa présence suffit côté serveur.
+#    Le nom reste une aide de saisie côté front (Stimulus), non soumise.
+validates :siret, presence: true
+```
+
+Corollaire : un champ qui ne sert qu'à l'UX côté client se rend **non soumis** plutôt que permis puis ignoré (voir skill `build-fix`, params soumis mais non permis).
+
 ## Interactors & Organizers (logique métier)
 
 La logique métier multi-étapes utilise la gem [interactor](https://github.com/collectiveidea/interactor) (`gem "interactor"`). Pas de service objects PORO ad-hoc pour la logique métier.
