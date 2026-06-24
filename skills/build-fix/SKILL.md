@@ -122,6 +122,17 @@ ActionController::UnpermittedParameters
 <%= f.text_field :organization_name, name: (submitted ? f.field_name(:organization_name) : nil) %>
 ```
 
+### Lire le code source d'une gem
+
+Pour inspecter une gem installée, toujours partir du chemin rapporté par Bundler — jamais depuis `tmp/`, un mirror local, ou une copie de développement qui peut être désynchronisée.
+
+```bash
+bundle show <gem>        # ex: bundle show hub-api-v1 → /path/to/gem-1.2.3
+# Puis lire depuis ce chemin
+
+grep <gem> Gemfile.lock  # vérifier la révision exacte installée
+```
+
 ### StandardRB Violations
 
 ```bash
