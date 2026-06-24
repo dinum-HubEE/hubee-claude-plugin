@@ -522,7 +522,7 @@ end
 
 ## Temps et fuseaux horaires
 
-Utiliser `Time.current` (alias de `Time.zone.now`) partout, jamais `Time.now` qui ignore `config.time_zone` de Rails.
+Utiliser `Time.current` partout, jamais `Time.now` qui ignore `config.time_zone` de Rails.
 
 ```ruby
 # ❌ Time.now — retourne l'heure système, ignore le fuseau Rails
@@ -530,7 +530,6 @@ Time.now
 
 # ✅ Time.current — respecte config.time_zone
 Time.current
-Time.zone.now   # équivalent, moins courant
 ```
 
 En test, figer le temps avec `travel_to` plutôt qu'en dépendre.
