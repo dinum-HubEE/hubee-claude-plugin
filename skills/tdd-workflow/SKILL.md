@@ -247,13 +247,56 @@ COVERAGE=true bundle exec rspec                         # avec coverage
 
 ## Objectif de couverture
 
-Minimum **80 % de couverture de lignes**, imposé par SimpleCov (`spec/spec_helper.rb`). Tourne automatiquement en CI et à la demande en local :
+Minimum **90 % de couverture de lignes et de branches**, imposé par SimpleCov (`spec/spec_helper.rb`). Tourne automatiquement en CI et à la demande en local :
 
 ```bash
 COVERAGE=true bundle exec rspec   # génère coverage/index.html
 ```
 
-La couverture de branches est suivie mais pas encore imposée comme minimum.
+Configuration SimpleCov pour activer les deux métriques :
+
+```ruby
+# spec/spec_helper.rb
+SimpleCov.start "rails" do
+  enable_coverage :branch
+  minimum_coverage line: 90, branch: 90
+end
+```
+
+SimpleCov mesure la couverture de branches depuis la version 0.18 — chaque `if/unless/case/&&/||` compte comme une branche. Une couverture de lignes à 100 % ne garantit pas la couverture de branches.
+
+## Tests de frontière gem
+
+Quand l'app consomme une gem externe (ex: `hub-api-v1`), distinguer trois niveaux :
+
+| Niveau | Quand | Pattern |
+|---|---|---|
+| Erreurs réseau | 401, 403, 500 | `allow(GemClass).to receive(:method).and_raise(...)` — seul cas légitime de mock sur la classe gem |
+| Contrat form→gem | À chaque `to_search_params` | Spec unitaire sur le hash exact retourné (clés ET valeurs) |
+| Frontière HTTP | Tout chemin de recherche/écriture | Injecter `FakeClient`, espionner avec `and_call_original`, asserter sur les params HTTP |
+
+La spec de frontière se rédige **avant le code** (TDD). Elle doit passer au rouge avec le code cassé, au vert après le fix.
+
+```ruby
+let(:fake_client) { HubApiV1::Testing::FakeClient.new }
+
+before do
+  fake_client.add_subscription(...)
+  allow(HubApiV1::Client).to receive(:new).and_return(fake_client)
+  allow(fake_client).to receive(:get_with_headers).and_call_original
+end
+
+it "transmet companyName à l'API" do
+  get "/subscriptions", params: { company_name: "mairie" }
+
+  expect(fake_client).to have_received(:get_with_headers).with(
+    HubApiV1::Subscription::PATH,
+    { companyName: "mairie" }   # hash complet, pas hash_including (voir règle ci-dessus)
+  )
+end
+```
+
+**Règle sur `hash_including`** : ne jamais le substituer au hash complet en spec de frontière — il masquerait les paramètres inattendus transmis à l'API. Justifier son usage avec un commentaire si l'exception est vraiment nécessaire.
 
 ## Ce qu'il ne faut PAS tester
 

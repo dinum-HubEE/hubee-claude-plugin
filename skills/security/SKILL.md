@@ -84,6 +84,33 @@ Rails.application.config.filter_parameters += [:password, :token, :secret]
 
 If a feature ever requires per-role authorization, that's a project-level architecture decision (not a default).
 
+## Dockerfile & secrets
+
+**Règle absolue** : ne jamais utiliser `ARG` pour injecter un credential dans un Dockerfile (token gem privée, clé API, etc.) — même passé via `--build-arg`, la valeur est inscrite dans les layers et visible dans `docker history`.
+
+**Trigger** : dès qu'un Dockerfile installe des gems depuis une source privée (ex: `source "https://rubygems.pkg.github.com/..."` dans le Gemfile) ou touche un token quelconque.
+
+```dockerfile
+# ❌ ARG — token visible dans l'historique de l'image
+ARG BUNDLE_RUBYGEMS__PKG__GITHUB__COM
+RUN bundle install
+
+# ✅ RUN --mount=type=secret — ne persiste jamais dans les layers
+# syntax=docker/dockerfile:1
+# check=error=true
+RUN --mount=type=secret,id=bundle_token \
+    BUNDLE_RUBYGEMS__PKG__GITHUB__COM="$(cat /run/secrets/bundle_token)" \
+    bundle install
+```
+
+CI correspondant — utiliser `--secret`, jamais `--build-arg` pour un token :
+
+```bash
+docker build \
+  --secret id=bundle_token,env=BUNDLE_RUBYGEMS__PKG__GITHUB__COM \
+  .
+```
+
 ## npm / Supply Chain
 
 HubEE projects prefer Ruby gems (e.g. `dsfr-assets` for the frontend) over npm packages to reduce the supply chain attack surface (Shai-Hulud incident).
