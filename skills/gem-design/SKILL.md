@@ -1,6 +1,6 @@
 ---
 name: gem-design
-description: Use when extracting or creating an internal Ruby gem (e.g. hub-api-v1). Covers FakeClient design, gemspec for private gems, linting with Standard, and Dockerfile secrets for private gem sources.
+description: Use when extracting or creating an internal Ruby gem (e.g. hub-api-v1). Covers FakeClient design, gemspec for private gems, and Dockerfile secrets for private gem sources.
 ---
 
 # Gem Design Skill
@@ -9,7 +9,7 @@ Conventions pour créer ou maintenir une gem Ruby interne dans l'écosystème Hu
 
 ## FakeClient — objet de test de première classe
 
-Le `FakeClient` n'est pas un afterthought : il se conçoit en même temps que le vrai client.
+Le `FakeClient` n'est pas un ajout tardif : il se conçoit en même temps que le vrai client.
 
 **Contrat obligatoire** :
 - Implémenter tous les filtres supportés par les vraies méthodes (`companyName`, `company_register`, `type`, `name`…) avec la même sémantique de filtrage
@@ -66,18 +66,13 @@ end
 
 `allowed_push_host` est obligatoire sur toute gem privée : sans lui, un `gem push` accidentel publie la gem sur rubygems.org.
 
-## Linting : Standard, pas RuboCop
+## Linting
+
+StandardRB — même convention que les apps HubEE (voir `rails-patterns`). Ajouter dans le gemspec :
 
 ```ruby
-# Gemfile / gemspec
-gem "standard"   # ou spec.add_development_dependency "standard"
-```
-
-Zero-config, décisions prises, pas de débats. Pas de `.rubocop.yml` — Standard est la source de vérité (cohérent avec les apps Rails HubEE).
-
-```bash
-bundle exec standardrb
-bundle exec standardrb --fix
+spec.add_development_dependency "standard"
+spec.add_development_dependency "standard-rspec"
 ```
 
 ## Dockerfile & secrets (source privée)
