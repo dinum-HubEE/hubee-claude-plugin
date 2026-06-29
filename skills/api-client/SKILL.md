@@ -86,6 +86,7 @@ Accessibles via le client : `MonService::Client::NotFoundError`.
 | 200-299 | JSON parsé (Hash ou Array) |
 | 201 | Header `Location` (String) |
 | 204 | `nil` |
+| 400 | `Error` (message includes body) |
 | 401, 403, 404, 409 | Exception spécialisée |
 | 5xx | `ServerError` |
 | Autre | `Error` |
@@ -333,6 +334,45 @@ end
 - Lazy client `@client ||=` — créé à la demande
 - Deux Records : `Result` (paginé, méthodes calculées) + `Record` (entité)
 - `EMPTY_RESULT` frozen — réutilisé sans allocation
+
+### Pattern D : Pagination par en-tête `Content-Range`
+
+À utiliser quand l'API retourne le total dans l'en-tête `Content-Range` et non dans le corps JSON. Opposé au Pattern C où le total est dans `response["total"]`.
+
+**Méthode** : `get_with_headers(path, params)` — retourne `{body:, headers: {"Content-Range" => ...}}`
+
+**Format de l'en-tête** : `Content-Range: items 0-19/100` → total = 100 (extrait via regex `%r{/(\d+)\z}`)
+
+```ruby
+module MonService
+  class Organization
+    PaginatedResult = Data.define(:records, :total, :offset, :per_page) do
+      CONTENT_RANGE_REGEX = %r{/(\d+)\z}
+
+      def self.from_response(records:, content_range:, offset:, per_page:)
+        total = content_range&.then { |h| h.match(CONTENT_RANGE_REGEX)&.[](1).to_i } || 0
+        new(records:, total:, offset:, per_page:)
+      end
+
+      def total_pages = per_page.zero? ? 1 : (total.to_f / per_page).ceil
+      def current_page = (offset / [per_page, 1].max) + 1
+    end
+
+    def self.search(criteria = {}, offset: 0, per_page: 20, client: Client.new)
+      result = client.get_with_headers(PATH, {offSet: offset, maxResult: per_page}.merge(criteria))
+      records = result[:body].map { |item| parse(item) }
+      PaginatedResult.from_response(
+        records:,
+        content_range: result[:headers]["Content-Range"],
+        offset:,
+        per_page:
+      )
+    end
+  end
+end
+```
+
+**Quand utiliser** : dès que l'API renvoie le total dans `Content-Range` (comportement courant des APIs RESTful paginées qui suivent la RFC 7233). Si `Content-Range` est absent, `from_response` retourne `total: 0`.
 
 ## Consommation dans les controllers
 
