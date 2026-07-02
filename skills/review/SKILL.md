@@ -77,6 +77,15 @@ Si le diff touche `.claude/`, `.agent-vm.runtime.sh`, `.claude-container/` :
 
 - Si **> 20 fichiers** modifiés, proposer un **découpage en plusieurs MR**.
 
+### Cohérence avec le plugin
+
+Pour chaque écart ⚠️ ou 🛑 identifié, distinguer sa cause :
+
+- **La convention est documentée** dans le skill de domaine chargé → l'écart est actionnable normalement (signaler + proposer le fix), rien de plus à faire.
+- **La convention est absente ou ambiguë** dans le skill (le diff fait quelque chose de raisonnable que le skill ne couvre pas, ou le contourne parce que l'exemple du skill est incomplet) → signaler l'écart **ET** noter le gap de documentation dans la section "🔧 Évolutions plugin suggérées" en fin de rapport, avec le skill concerné et la règle à préciser. Ne pas ouvrir de PR sur le plugin soi-même depuis une revue de projet — se contenter de le noter.
+
+Cette section est **optionnelle** : ne l'inclure que si un gap a été identifié pendant la revue.
+
 ### Format de sortie
 
 ```markdown
@@ -97,6 +106,9 @@ Si le diff touche `.claude/`, `.agent-vm.runtime.sh`, `.claude-container/` :
 
 ### Suggestions
 - [Améliorations optionnelles]
+
+### 🔧 Évolutions plugin suggérées (si applicable)
+- `<skill>` : <gap constaté et règle à préciser>
 ```
 
 ### Politique de sortie
