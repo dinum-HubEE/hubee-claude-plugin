@@ -353,6 +353,15 @@ end
 
 **Règle sur `hash_including`** : ne jamais le substituer au hash complet en spec de frontière — il masquerait les paramètres inattendus transmis à l'API. Justifier son usage avec un commentaire si l'exception est vraiment nécessaire.
 
+## Organizer vs steps : répartition des cas de test
+
+| Niveau      | Quoi tester                                                        |
+|-------------|---------------------------------------------------------------------|
+| Organizer   | Happy path de bout en bout + comportement de composition (ex : le context d'une étape alimente l'étape suivante) |
+| Step        | Tous les chemins d'erreur propres à l'étape + comportement atomique |
+
+Ne pas dupliquer les cas d'erreur à la fois au niveau step et organizer : les tester au niveau step suffit. L'organizer teste que les étapes sont bien branchées, pas ce que chaque étape fait en isolation.
+
 ## Ce qu'il ne faut PAS tester
 
 - Les internes de Rails (faire confiance au framework)

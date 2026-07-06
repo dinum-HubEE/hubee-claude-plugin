@@ -278,7 +278,37 @@ def rollback
 end
 ```
 
+Cas d'une étape qui appelle une API externe (Keycloak) : le rollback n'est pas automatique côté API, et tenter une compensation après un échec de création est souvent voué au même échec (mêmes causes réseau/validation). Documenter explicitement le choix plutôt que le laisser implicite :
+
+```ruby
+class CreateKeycloakUser
+  include Interactor
+
+  # Pas de rollback : une compensation Keycloak après un create_api_error a de
+  # bonnes chances d'échouer pour la même raison (réseau, 5xx). On préfère logger
+  # et laisser un état à corriger manuellement plutôt qu'échouer silencieusement
+  # une deuxième fois. Si une étape suivante s'intercale dans l'organizer,
+  # ajouter alors :
+  #
+  #   def rollback
+  #     Keycloak::UserClient.delete(id: context.created_user.user_id,
+  #                                 access_token: context.access_token)
+  #   end
+
+  def call
+    context.created_user = Keycloak::UserClient.create(...)
+  rescue Keycloak::UserClient::UserExistsError
+    context.fail!(error: :user_exists)
+  rescue Keycloak::Client::Error => e
+    Rails.logger.error("User creation failed: #{e.message}")
+    context.fail!(error: :create_api_error)
+  end
+end
+```
+
 ### Usage dans un controller
+
+`context.fail!(error: :symbol)` passe un symbole via la clé de contexte `error:`, lisible directement par `result.error` (le `context` se comporte comme un OpenStruct, pas besoin de `result.context`). C'est au controller de traduire ce symbole en message utilisateur/API, jamais à l'interactor.
 
 ```ruby
 def create
@@ -292,6 +322,37 @@ def create
 end
 ```
 
+Exemple complet de traduction côté controller (form HTML, mais la même table sert un rendu JSON) :
+
+```ruby
+# app/controllers/subscriptions_controller.rb
+INTERACTOR_ERRORS = {
+  organization_not_found: {field: :siret, key: "users.shared.organization_not_found"},
+  user_exists:            {field: :email, key: "users.create.user_exists"},
+  create_api_error:       {field: :base,  key: "users.create.api_error"}
+}.freeze
+
+def create
+  result = Users::Create.call(user_form: @form)
+
+  if result.success?
+    redirect_to users_path, notice: t(".success")
+  else
+    apply_interactor_error(result)
+    render :new, status: :unprocessable_content
+  end
+end
+
+private
+
+def apply_interactor_error(result)
+  mapping = INTERACTOR_ERRORS.fetch(result.error)
+  @form.errors.add(mapping[:field], t(mapping[:key]))
+end
+```
+
+❌ **Anti-pattern** : muter `context.user_form.errors.add(...)` directement dans l'interactor pour aller plus vite. Ça couple la logique métier à la présentation et retire au controller la responsabilité de traduire l'échec — l'interactor ne connaît que des symboles, jamais des messages.
+
 ### Specs
 
 Un fichier de spec par interactor et par organizer (`spec/interactors/...`).
@@ -299,7 +360,7 @@ Un fichier de spec par interactor et par organizer (`spec/interactors/...`).
 ```ruby
 RSpec.describe DataPackages::Transmit::ValidateTransmission do
   describe ".call" do
-    subject(:result) { described_class.call(data_package: data_package) }
+    subject(:result) { described_class.call(data_package:) }
 
     context "when package is not draft" do
       let(:data_package) { create(:data_package, :transmitted) }
