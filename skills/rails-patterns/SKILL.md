@@ -308,7 +308,7 @@ end
 
 ### Usage dans un controller
 
-`context.fail!(error: :symbol)` n'est **pas une fonctionnalité de la gem** : `error:` est une clé de contexte arbitraire (le `context` se comporte comme un OpenStruct), lisible directement via `result.error` sans passer par `result.context`. C'est une **convention HubEE**, pas de la doc officielle `interactor` — c'est au controller de traduire ce symbole en message utilisateur/API, jamais à l'interactor.
+`context.fail!(error: :symbol)` passe un symbole via la clé de contexte `error:`, lisible directement par `result.error` (le `context` se comporte comme un OpenStruct, pas besoin de `result.context`). C'est au controller de traduire ce symbole en message utilisateur/API, jamais à l'interactor.
 
 ```ruby
 def create
