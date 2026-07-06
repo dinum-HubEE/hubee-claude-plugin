@@ -34,13 +34,13 @@ L'app utilise OmniAuth avec le provider `openid_connect` pour s'authentifier via
 |-------|------------|-----------|-------|
 | **id_token** | Minutes | `keycloak_id_token:#{session_token}` | SSO Logout (`id_token_hint`) |
 | **access_token** | 5 min (`expires_in`) | `keycloak_access_token:#{session_token}` | Bearer token pour les appels API Keycloak |
-| **refresh_token** | 2h (`REFRESH_TOKEN_TTL`) | `keycloak_refresh_token:#{session_token}` | Refresh proactif de session (`refresh_session!`) |
+| **refresh_token** | 2h (`REFRESH_TOKEN_TTL`) | `keycloak_refresh_token:#{session_token}` | Renouvellement silencieux des tokens (`renew_keycloak_tokens!`) |
 
 ### Pourquoi cette séparation ?
 
-- **`expires_at` calculé depuis `expires_in` de l'access_token** : l'access token expire en 5 min (config Keycloak). Le controller calcule `expires_at = Time.current.to_i + expires_in`.
+- **Le TTL du cache de l'access_token *est* sa fenêtre de validité** : l'access token expire en 5 min (config Keycloak). Le TTL posé à l'écriture dans `Rails.cache` fait foi — token présent en cache = valide, token absent = à renouveler (expiré ou évincé). Aucun `expires_at` n'est dupliqué en session ni comparé dans le concern.
 - **`id_token` pour le logout** : la spec OIDC définit `id_token_hint`, pas `access_token_hint`. L'id_token contient la claim `sid` (session ID).
-- **`refresh_token` en cache** : permet au concern de renouveler proactivement les tokens sans renvoyer l'utilisateur vers Keycloak. TTL aligné sur "SSO Session Idle" (2h).
+- **`refresh_token` en cache** : permet au concern de renouveler silencieusement les tokens (quand l'access token n'est plus en cache) sans renvoyer l'utilisateur vers Keycloak. TTL aligné sur "SSO Session Idle" (2h).
 
 ## Fichiers clés
 
@@ -50,28 +50,36 @@ L'app utilise OmniAuth avec le provider `openid_connect` pour s'authentifier via
 module Authentication
   extend ActiveSupport::Concern
 
-  class RefreshFailed < StandardError; end
+  class TokenRefreshFailed < StandardError; end
 
-  TOKEN_TTL_FALLBACK = 1.hour
-  REFRESH_TOKEN_TTL = 2.hours # aligné sur "SSO Session Idle" Keycloak
+  ACCESS_TOKEN_TTL_FALLBACK = 1.hour # fallback si expires_in absent de la réponse Keycloak
+  REFRESH_TOKEN_TTL = 2.hours # aligné sur "SSO Session Idle" Keycloak (Realm Settings > Sessions)
 
   included do
     helper_method :current_user, :user_signed_in?
   end
 
   def authenticate_user!
-    return if valid_session?
+    # 1. Access token encore utilisable : rien à faire.
+    return if access_token_usable?
 
-    if token_expired?
-      refresh_session!
+    # 2. Pas de session Rails (session[:user_info] absent) : ré-authentification complète.
+    unless user_signed_in?
+      redirect_to_login!
       return
     end
 
-    redirect_to_login!
-  rescue RefreshFailed
+    # 3. Session Rails présente mais access token expiré/évincé du cache
+    #    (Rails.cache = unique source de vérité) : renouvellement silencieux
+    #    via le refresh_token. Échoue en TokenRefreshFailed si absent/invalide.
+    renew_keycloak_tokens!
+  rescue TokenRefreshFailed
     redirect_to_login!
   end
 
+  # session[:user_info] (cookie Rails) ne contient qu'une identité légère et une
+  # clé de liaison (session_token) vers les tokens Keycloak, stockés côté serveur
+  # dans Rails.cache — un JWT Keycloak est trop volumineux pour tenir en cookie.
   def current_user
     @current_user ||= session[:user_info]&.with_indifferent_access
   end
@@ -80,6 +88,10 @@ module Authentication
     current_user.present?
   end
 
+  # Rails.cache est l'unique source de vérité sur l'access_token : sa présence
+  # ET sa fraîcheur sont garanties par le TTL posé à l'écriture. Aucune expiration
+  # n'est dupliquée en session : absent du cache = à renouveler (qu'il ait expiré
+  # naturellement ou été évincé sous pression mémoire).
   def current_access_token
     session_token = current_user&.dig("session_token")
     Rails.cache.read("keycloak_access_token:#{session_token}") if session_token
@@ -87,34 +99,41 @@ module Authentication
 
   private
 
-  def valid_session?
-    user_signed_in? && !token_expired? && current_access_token.present?
+  def access_token_usable?
+    user_signed_in? && current_access_token.present?
   end
 
-  def token_expired?
-    expires_at = current_user&.dig("expires_at")
-    expires_at && expires_at < Time.current.to_i
-  end
-
-  def refresh_session!
+  def renew_keycloak_tokens!
     session_token = current_user["session_token"]
     refresh_token = Rails.cache.read("keycloak_refresh_token:#{session_token}")
-    raise RefreshFailed unless refresh_token
+    raise TokenRefreshFailed unless refresh_token
 
     token_response = Keycloak::TokenRefresher.call(refresh_token:)
-    refresh_tokens!(session_token, token_response)
+    persist_renewed_tokens!(session_token, token_response)
   rescue Keycloak::Client::Error => e
     Rails.logger.error("[Authentication] Keycloak refresh failed: #{e.message}")
-    raise RefreshFailed
+    raise TokenRefreshFailed
   end
 
-  def refresh_tokens!(session_token, token_response)
-    token_ttl = token_response["expires_in"]&.seconds || TOKEN_TTL_FALLBACK
+  def persist_renewed_tokens!(session_token, token_response)
+    tokens_ttl = token_response["expires_in"]&.seconds || ACCESS_TOKEN_TTL_FALLBACK
 
-    Rails.cache.write("keycloak_access_token:#{session_token}", token_response["access_token"], expires_in: token_ttl)
-    Rails.cache.write("keycloak_id_token:#{session_token}", token_response["id_token"], expires_in: token_ttl)
-    Rails.cache.write("keycloak_refresh_token:#{session_token}", token_response["refresh_token"], expires_in: REFRESH_TOKEN_TTL)
-    session[:user_info]["expires_at"] = Time.current.to_i + token_ttl.to_i
+    write_keycloak_tokens_to_cache(
+      session_token:,
+      access_token: token_response["access_token"],
+      id_token: token_response["id_token"],
+      refresh_token: token_response["refresh_token"],
+      tokens_ttl:
+    )
+  end
+
+  # Point d'écriture unique des 3 tokens en cache, partagé avec
+  # SessionsController#create (qui hérite de ce concern via ApplicationController)
+  # — évite de dupliquer les clés "keycloak_*_token:" à deux endroits.
+  def write_keycloak_tokens_to_cache(session_token:, access_token:, id_token:, refresh_token:, tokens_ttl:)
+    Rails.cache.write("keycloak_access_token:#{session_token}", access_token, expires_in: tokens_ttl)
+    Rails.cache.write("keycloak_id_token:#{session_token}", id_token, expires_in: tokens_ttl)
+    Rails.cache.write("keycloak_refresh_token:#{session_token}", refresh_token, expires_in: REFRESH_TOKEN_TTL)
   end
 
   def redirect_to_login!
@@ -126,9 +145,11 @@ end
 
 ### `app/controllers/sessions_controller.rb`
 
-- `create` : callback OmniAuth, stocke `user_info` en session, écrit les 3 tokens en cache, préserve `origin` pour la redirection post-login
-- `destroy` : vide la session, supprime les 3 clés cache, redirige vers le logout Keycloak
+- `create` : callback OmniAuth. Retraduit le vocabulaire de la gem (`credentials.token` → `access_token`), écrit les 3 tokens via `write_keycloak_tokens_to_cache` (mutualisé avec le concern), stocke une identité légère en session (**sans `expires_at`**), et redirige vers l'`origin` post-login (validée : commence par `/` mais pas `//`)
+- `destroy` : lit l'`id_token` en cache, vide la session, supprime les 3 clés cache, redirige vers le logout Keycloak (`post_logout_redirect_uri: root_url.chomp("/")` — Keycloak exige une correspondance exacte sans slash final)
 - `failure` : gère les erreurs d'authentification
+
+> **Piège de la gem `omniauth_openid_connect`** : dans `auth.credentials`, l'access_token est nommé `token` (et non `access_token`). Le controller le retraduit une bonne fois vers notre vocabulaire (`access_token` / `id_token` / `refresh_token`) avant l'écriture en cache.
 
 ### `lib/keycloak/logout_url_builder.rb`
 
@@ -145,15 +166,14 @@ session[:user_info] = {
   "keycloak_id" => "uuid",
   "email" => "user@example.com",
   "name" => "Name",
-  "session_token" => "uuid-local",  # clé pour lire les tokens en cache
-  "expires_at" => 1706540400        # Unix timestamp (calculé depuis expires_in de l'access_token)
+  "session_token" => "uuid-local"  # clé de liaison vers les tokens en cache
 }
 ```
 
 ## Expiration (défense en profondeur)
 
-1. **Refresh proactif** : token expiré → `refresh_session!` tente de renouveler avant de rediriger vers login
-2. **Token** : `token_expired?` vérifie `expires_at` à chaque requête ; `valid_session?` vérifie aussi que `current_access_token` est présent en cache
+1. **Cache = source de vérité** : la présence de l'access token en cache (TTL Solid Cache) garantit sa fraîcheur ; `access_token_usable?` vérifie uniquement cette présence, sans comparaison de timestamp
+2. **Renouvellement silencieux** : access token absent du cache → `renew_keycloak_tokens!` le régénère via le `refresh_token` avant toute redirection vers login
 3. **Cookie** : expire après 30 min d'inactivité (`session_store.rb`)
 
 ## SSO
@@ -201,8 +221,11 @@ En dev, utiliser le gem `dotenv` via un fichier `.env` local. En production, les
 ## Tests
 
 ```ruby
-# helper de test
+# helper de test (spec/support/omniauth.rb)
 sign_in_via_omniauth(email: "test@example.com", expires_in: 3600)
+# attrs supportés : uid, email, name, token, refresh_token, id_token, expires_in
 ```
+
+`expires_in` pilote le TTL du cache des tokens (il n'existe plus d'`expires_at` en session) : le baisser simule un access token évincé/expiré et déclenche le renouvellement silencieux.
 
 Specs : `spec/requests/authentication_spec.rb`, `spec/requests/sessions_spec.rb`
