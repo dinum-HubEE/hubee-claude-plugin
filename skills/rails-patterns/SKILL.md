@@ -217,8 +217,11 @@ La logique métier multi-étapes utilise la gem [interactor](https://github.com/
 
 **Frontière — où mettre la logique ?**
 - ✅ Une étape simple → méthode de modèle (YAGNI, voir skill `principles`)
-- ✅ Plusieurs étapes avec échec possible → Organizer + Interactors dans `app/interactors/`
+- ✅ Scaffold, ou complexité de niveau scaffold → code directement dans le controller
+- ✅ Au-dessus du scaffold → Organizer + Interactors dans `app/interactors/`, **même s'il n'y a qu'un seul interactor** (on passe alors automatiquement en organizer + interactor, pas de PORO ni de logique gonflée dans le controller)
 - ✅ Client API externe / adapter d'infrastructure → `app/services/<service>/` (voir skills `api-client` et `authentication`)
+
+Le seuil de bascule est la complexité : tant qu'on reste au niveau d'un scaffold (CRUD direct, une ou deux lignes triviales), la logique reste dans le controller. Dès qu'on le dépasse, on bascule en organizer + interactor sans attendre d'avoir « assez » d'étapes pour le justifier.
 
 ### Organizer
 
@@ -264,6 +267,58 @@ module DataPackages
 end
 ```
 
+### Nommage & namespaces
+
+Le nommage se déduit du controller, et l'on nomme par **intention** (ce que l'étape veut faire), jamais par mécanique interne.
+
+- **Organizer** : son namespace reflète le controller. `Nom de ressource::Action` = `NomController#action`.
+  `UsersController#create` → organizer `Users::Create` dans `app/interactors/users/create.rb`.
+- **Interactors** : namespacés sous leur organizer. Chaque étape vit sous `<Ressource>::<Action>::`.
+  `app/interactors/users/create/validate_form.rb` → `Users::Create::ValidateForm`.
+- **Noms par intention** : `ValidateForm`, `ResolveOrganization`, `CreateKeycloakUser` — l'intention métier, pas le comment.
+
+### Partage — pas de duplication d'intention
+
+Deux organizers qui ont besoin de la même intention ne dupliquent pas l'étape : on la partage sous un sous-namespace `shared`, remonté au niveau où le partage a lieu.
+
+- Partagé entre plusieurs actions d'une même ressource → `<Ressource>::Shared::<Étape>` dans `app/interactors/<ressource>/shared/`.
+- Transverse à plusieurs ressources → `Shared::<Étape>` dans `app/interactors/shared/`.
+
+```ruby
+# Users::Create et Users::Update ont tous deux besoin de résoudre l'organisation.
+# app/interactors/users/shared/resolve_organization.rb
+module Users
+  module Shared
+    class ResolveOrganization
+      include Interactor
+
+      def call
+        context.organization = HubApi::Organization.find(context.siret)
+      rescue HubApi::Client::Error
+        context.fail!(error: :organization_not_found)
+      end
+    end
+  end
+end
+```
+
+❌ Recopier une intention quasi identique sous deux namespaces d'action (`Users::Create::ResolveOrganization` **et** `Users::Update::ResolveOrganization`) : c'est le signal d'un `Shared` à extraire.
+
+Dans l'`organize`, référence l'étape partagée par sa constante depuis l'organizer. Attention à la résolution Ruby : depuis `module Users`, `Shared::X` désigne `Users::Shared::X`. Pour une étape transverse racine, préfixer `::` afin d'éviter la collision.
+
+```ruby
+module Users
+  class Update
+    include Interactor::Organizer
+
+    organize Update::ValidateForm,
+      Shared::ResolveOrganization,   # relatif → Users::Shared::ResolveOrganization
+      Update::UpdateKeycloakUser
+    # étape transverse à plusieurs ressources : ::Shared::AuditLog
+  end
+end
+```
+
 ### Rollback
 
 Si une étape échoue via `context.fail!`, `rollback` est appelé sur les étapes déjà exécutées (en ordre inverse). À définir sur chaque interactor qui crée ou modifie des données.
@@ -305,6 +360,8 @@ class CreateKeycloakUser
   end
 end
 ```
+
+Cas d'un **update** d'API externe (`UpdateKeycloakUser`…) : même conclusion, pas de rollback, mais pour la raison inverse du create. Un update est réversible par un update symétrique, sur un chemin qui vient justement de réussir — la compensation est faisable mais encore moins pertinente : l'état partiel reste cohérent et corrigeable, réémettre une écriture n'apporte rien. On logge et on laisse à corriger, sans compensation automatique.
 
 ### Usage dans un controller
 
@@ -376,7 +433,10 @@ end
 ```
 
 **Règles** :
-- ✅ Arborescence : `app/interactors/<ressource>/<action>.rb` (organizer) + `app/interactors/<ressource>/<action>/<étape>.rb` (steps)
+- ✅ Nommage déduit du controller : organizer `<Ressource>::<Action>` = `<Ressource>Controller#<action>`, noms d'étapes par intention
+- ✅ Arborescence : `app/interactors/<ressource>/<action>.rb` (organizer) + `app/interactors/<ressource>/<action>/<étape>.rb` (steps) — interactor toujours namespacé sous son organizer
+- ✅ Étape partagée entre organizers → sous-namespace `shared` (`<ressource>/shared/` ou `shared/`), pas de duplication d'une même intention
+- ✅ Bascule en organizer + interactor dès qu'on dépasse la complexité d'un scaffold, même pour un seul interactor
 - ✅ Erreurs symboliques : `context.fail!(error: :not_draft)` — le controller traduit en message utilisateur/API
 - ✅ Specs : `described_class.call(...)`, matchers `be_success` / `be_failure`, vérifier `result.error`
 - ❌ Pas de service object PORO pour la logique métier (les `app/services/` existants sont des adapters API)
