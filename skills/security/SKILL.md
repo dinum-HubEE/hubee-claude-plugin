@@ -189,8 +189,19 @@ Ensure these are configured at the project level:
 Rails.application.configure do
   config.content_security_policy do |policy|
     policy.default_src :self
+    policy.object_src :none
+    policy.img_src :self, :data
+    policy.font_src :self, :data
+    policy.connect_src :self
     policy.script_src :self
     policy.style_src :self, :unsafe_inline
   end
+
+  config.content_security_policy_nonce_generator = ->(request) { request.session.id.to_s }
+  config.content_security_policy_nonce_directives = %w[script-src]
 end
 ```
+
+Notes :
+- Le nonce est posé automatiquement par importmap-rails sur les balises `<script>` — ne pas l'ajouter manuellement.
+- `style_src :unsafe_inline` sans nonce est requis par les styles inline runtime du DSFR : en CSP3, un nonce sur `style-src` désactiverait `unsafe-inline`.
