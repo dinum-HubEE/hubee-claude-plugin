@@ -271,18 +271,21 @@ end
 
 Le nommage se déduit du controller, et l'on nomme par **intention** (ce que l'étape veut faire), jamais par mécanique interne.
 
-- **Organizer** : son namespace reflète le controller. `Nom de ressource::Action` = `NomController#action`.
-  `UsersController#create` → organizer `Users::Create` dans `app/interactors/users/create.rb`.
-- **Interactors** : namespacés sous leur organizer. Chaque étape vit sous `<Ressource>::<Action>::`.
+- **Organizer** : son namespace reflète le controller, **namespace du controller inclus**. `[Namespace::]Ressource::Action` = `[Namespace::]RessourceController#action`.
+  - `UsersController#create` → `Users::Create` dans `app/interactors/users/create.rb`.
+  - `Api::UsersController#create` → `Api::Users::Create` dans `app/interactors/api/users/create.rb`.
+- **Interactors** : namespacés sous leur organizer. Chaque étape vit sous `<Organizer>::`.
   `app/interactors/users/create/validate_form.rb` → `Users::Create::ValidateForm`.
 - **Noms par intention** : `ValidateForm`, `ResolveOrganization`, `CreateKeycloakUser` — l'intention métier, pas le comment.
 
 ### Partage — pas de duplication d'intention
 
-Deux organizers qui ont besoin de la même intention ne dupliquent pas l'étape : on la partage sous un sous-namespace `shared`, remonté au niveau où le partage a lieu.
+Deux organizers qui ont besoin de la même intention ne dupliquent pas l'étape : on la partage sous un sous-namespace `shared`, **remonté au premier niveau qui couvre tous les usages**.
 
-- Partagé entre plusieurs actions d'une même ressource → `<Ressource>::Shared::<Étape>` dans `app/interactors/<ressource>/shared/`.
-- Transverse à plusieurs ressources → `Shared::<Étape>` dans `app/interactors/shared/`.
+- Entre plusieurs actions d'une même ressource → `<Ressource>::Shared::<Étape>` dans `app/interactors/<ressource>/shared/`.
+- Entre plusieurs ressources d'un même namespace → `<Namespace>::Shared::<Étape>` dans `app/interactors/<namespace>/shared/`.
+- Transverse à plusieurs namespaces de premier niveau (ex. `Api` + `PortailV2`) → namespace global `HubEE::Shared::<Étape>` dans `app/interactors/hubee/shared/`.
+- La racine nue `Shared::<Étape>` (`app/interactors/shared/`) n'est admise que si l'app n'a **aucun** namespace de premier niveau significatif. Dès qu'il en existe, le global passe par `HubEE::Shared`.
 
 ```ruby
 # Users::Create et Users::Update ont tous deux besoin de résoudre l'organisation.
@@ -304,7 +307,7 @@ end
 
 ❌ Recopier une intention quasi identique sous deux namespaces d'action (`Users::Create::ResolveOrganization` **et** `Users::Update::ResolveOrganization`) : c'est le signal d'un `Shared` à extraire.
 
-Dans l'`organize`, référence l'étape partagée par sa constante depuis l'organizer. Attention à la résolution Ruby : depuis `module Users`, `Shared::X` désigne `Users::Shared::X`. Pour une étape transverse racine, préfixer `::` afin d'éviter la collision.
+Dans l'`organize`, référence l'étape partagée par sa constante depuis l'organizer. Attention à la résolution Ruby : depuis `module Users`, `Shared::X` désigne `Users::Shared::X` (le shared de la ressource). Pour viser un `Shared` de niveau supérieur — celui d'un namespace ou le global `HubEE` — écrire le chemin complet.
 
 ```ruby
 module Users
@@ -312,9 +315,9 @@ module Users
     include Interactor::Organizer
 
     organize Update::ValidateForm,
-      Shared::ResolveOrganization,   # relatif → Users::Shared::ResolveOrganization
+      Shared::ResolveOrganization,     # relatif → Users::Shared::ResolveOrganization
       Update::UpdateKeycloakUser
-    # étape transverse à plusieurs ressources : ::Shared::AuditLog
+    # étape globale (transverse aux namespaces) : HubEE::Shared::AuditLog
   end
 end
 ```
@@ -433,9 +436,9 @@ end
 ```
 
 **Règles** :
-- ✅ Nommage déduit du controller : organizer `<Ressource>::<Action>` = `<Ressource>Controller#<action>`, noms d'étapes par intention
-- ✅ Arborescence : `app/interactors/<ressource>/<action>.rb` (organizer) + `app/interactors/<ressource>/<action>/<étape>.rb` (steps) — interactor toujours namespacé sous son organizer
-- ✅ Étape partagée entre organizers → sous-namespace `shared` (`<ressource>/shared/` ou `shared/`), pas de duplication d'une même intention
+- ✅ Nommage déduit du controller, **namespace inclus** : organizer `[Namespace::]<Ressource>::<Action>` = `[Namespace::]<Ressource>Controller#<action>`, noms d'étapes par intention
+- ✅ Arborescence : `app/interactors/[<namespace>/]<ressource>/<action>.rb` (organizer) + `.../<action>/<étape>.rb` (steps) — interactor toujours namespacé sous son organizer
+- ✅ Étape partagée → sous-namespace `shared` remonté au premier niveau couvrant tous les usages (ressource → namespace → global `HubEE`, racine nue seulement sans namespace de premier niveau), pas de duplication d'une même intention
 - ✅ Bascule en organizer + interactor dès qu'on dépasse la complexité d'un scaffold, même pour un seul interactor
 - ✅ Erreurs symboliques : `context.fail!(error: :not_draft)` — le controller traduit en message utilisateur/API
 - ✅ Specs : `described_class.call(...)`, matchers `be_success` / `be_failure`, vérifier `result.error`
