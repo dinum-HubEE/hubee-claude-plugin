@@ -205,6 +205,19 @@ describe "#sanitized_siret" do
 end
 ```
 
+### Form specs : shoulda-matchers sans `type: :model`
+
+Les form objects vivent dans `spec/forms/`. Ne pas déclarer `type: :model` pour obtenir les shoulda-matchers — un form object n'est pas un modèle ActiveRecord. Inclure les matchers directement dans le `describe` :
+
+```ruby
+# ❌ type sémantiquement faux, vestige de spec/models/
+RSpec.describe UserForm, type: :model do
+
+# ✅ include ciblé, sans polluer le type
+RSpec.describe UserForm do
+  include Shoulda::Matchers::ActiveModel
+```
+
 ### Espaces superflus : tester dans les form specs
 
 Les cas d'espaces (strip avant validation de longueur) se testent dans les specs du form object, pas dans les request specs. La request spec garde un seul cas représentatif pour valider l'intégration.
@@ -216,6 +229,48 @@ describe "name normalization" do
     expect(described_class.new(name: "  ab  ")).not_to be_valid   # 2 utiles
     expect(described_class.new(name: "  a bb c  ")).to be_valid   # 7 utiles
   end
+end
+```
+
+### `expect` plutôt que `allow` — sans exception
+
+`allow` autorise un appel sans garantir qu'il a lieu. Si le stub est important, c'est que l'appel a lieu — donc `expect`. La règle est absolue :
+
+- `expect(...).to receive(...)` → l'appel doit avoir lieu
+- `expect(...).not_to receive(...)` → l'appel est interdit
+- `allow` → jamais
+
+```ruby
+# ❌ allow : le lecteur ne sait pas si l'appel a réellement lieu
+before do
+  allow(conn).to receive(:execute).with(query)
+end
+it { expect(conn).to have_received(:execute).with(query) }
+
+# ❌ allow pour un fake : si le fake compte, l'appel à .new compte aussi
+allow(Client).to receive(:new).and_return(fake_client)
+
+# ✅ expect avant l'action — ce qui est appelé est explicite
+it "exécute la requête" do
+  expect(conn).to receive(:execute).with(query)
+  subject.perform_now
+end
+
+# ✅ expect pour le fake
+expect(Client).to receive(:new).and_return(fake_client)
+
+# ✅ not_to receive — échoue immédiatement si appelé
+it "ne touche pas la DB en dry_run" do
+  expect(conn).not_to receive(:execute)
+  subject.perform_now(dry_run: true)
+end
+```
+
+Pour éviter de dupliquer le setup dans chaque `it`, extraire un helper de spec plutôt que de mettre un `allow` dans un `before` partagé :
+
+```ruby
+def expect_readonly_connection
+  expect(HubDb::ReadonlyRecord).to receive(:with_connection) { |&block| block.call(conn) }
 end
 ```
 
