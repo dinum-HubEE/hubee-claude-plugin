@@ -167,6 +167,7 @@ Beaucoup de questions sur l'architecture sont **déjà répondues dans les skill
 | "Comment ajouter du Turbo / Stimulus ?" | `hotwire` |
 | "Comment écrire une spec X ?" | `tdd-workflow` |
 | "Patterns de controller / service ?" | `rails-patterns` |
+| "Logique métier / interactor / organizer ?" | `interactors` |
 | "Décision d'architecture ?" | `architecture` |
 
 **Toujours vérifier ces skills d'abord** plutôt que de re-explorer la codebase si la doc existe déjà.

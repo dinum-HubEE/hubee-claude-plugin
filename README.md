@@ -77,6 +77,7 @@ Dans `<projet>/.claude/settings.json` :
 | `plan` | Rédiger un plan d'implémentation (override `superpowers:writing-plans`) |
 | `principles` | Pousser back contre l'over-abstraction (YAGNI > KISS > DRY > SOLID, Rule of Three, Semantic DRY) |
 | `rails-patterns` | Models, controllers, services, queries, naming, method chaining |
+| `interactors` | Logique métier multi-étapes (gem interactor) : nommage, partage, rollback/ordonnancement, rejeu, specs |
 | `review` | Checklist review HubEE avant push/MR (Rails + RSpec + DSFR + RGAA + Keycloak) |
 | `security` | Audit sécurité Rails HubEE (SQL injection, XSS, mass assignment, Keycloak, brakeman) |
 | `tdd-workflow` | TDD RSpec/FactoryBot/SimpleCov 80% (override `superpowers:test-driven-development`) |
