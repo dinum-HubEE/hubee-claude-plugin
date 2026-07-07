@@ -132,6 +132,8 @@ Cela augmente le nombre de locals : acceptable uniquement quand la réutilisatio
 
 ## Sémantique des vues
 
+> L'objet formulaire lui-même (ce qu'il porte, validation, champs non soumis) relève de la skill `form-objects`. Ici, on couvre son **rendu** côté vue.
+
 Préférer les méthodes du form object aux variables d'instance brutes pour exprimer l'intention. Les vues n'ont pas à interpréter une valeur `nil` comme un signal d'état — c'est au form object d'exposer une méthode sémantique (`search_requested?`, `submitted?`, etc.).
 
 ```erb

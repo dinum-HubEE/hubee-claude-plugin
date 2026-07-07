@@ -1,13 +1,30 @@
 ---
 name: rails-patterns
-description: "Conventions Rails : modèles, controllers, form objects, query objects, nommage, style Ruby. À utiliser pour créer des modèles, des controllers ou des fonctionnalités Rails. Pour la logique métier multi-étapes, voir la skill interactors."
+description: "Conventions Rails génériques (nommage, modèles, controllers, style Ruby, error handling, temps, linting) ET routeur de choix de pattern : quel pattern écrire pour quel besoin (controller direct, méthode de modèle, interactor, query object, form object, state machine, vue). À utiliser pour créer n'importe quel fichier Rails ou pour décider où placer une logique."
 globs:
-  - "app/models/**/*.rb"
-  - "app/controllers/**/*.rb"
-  - "app/services/**/*.rb"
+  - "app/**/*.rb"
 ---
 
 # Rails Patterns Skill
+
+Cette skill est le **socle** des conventions Ruby/Rails génériques **et le routeur** qui oriente vers le bon pattern. Commencer par « Choisir un pattern » pour décider *quoi écrire*, puis appliquer les conventions génériques ci-dessous.
+
+## Choisir un pattern
+
+Table de décision *orientée écriture* (« quel pattern écrire »). Complémentaire de la table *navigation* de la skill `explore-rails` (« où est X »).
+
+| Besoin | Pattern | Skill |
+|---|---|---|
+| Action triviale / CRUD scaffold | Logique **directement dans le controller** | *(ce fichier, § Controllers)* |
+| Une étape simple, liée à une entité | **Méthode de modèle** (YAGNI, pas de sur-abstraction) | `principles` |
+| Logique métier **au-dessus du scaffold** (multi-étapes, orchestration) | **Organizer + Interactor** (`app/interactors/`), même pour un seul interactor | `interactors` |
+| Requête complexe (filtres conditionnels, recherche, jointures) | **Query Object** (`app/queries/`) | `query-objects` |
+| Formulaire multi-champs / validation hors modèle | **Form Object** (`app/forms/`) | `form-objects` |
+| Cycle de vie / états contraints d'une ressource | **State Machine (AASM)** | `state-machine` |
+| Rendu, formulaire DSFR, interactions client | Vues / Turbo / Stimulus | `frontend-rails`, `hotwire` |
+| Client API externe / adapter d'infrastructure | Module dans `lib/<client>/` | `api-client`, `authentication` |
+
+**Le seuil central est la complexité, pas le nombre d'étapes.** Tant qu'on reste au niveau d'un scaffold (CRUD direct, une ou deux lignes triviales), la logique reste dans le controller. Dès qu'on le dépasse, on bascule vers le pattern dédié sans attendre d'avoir « assez » de matière pour le justifier — en particulier, on passe en organizer + interactor dès la première étape métier non triviale, pas de service object PORO ad-hoc.
 
 ## Conventions de nommage
 
@@ -96,33 +113,7 @@ end
 
 > **Valeur à liste fermée** (`select`, `enum`) : préférer `validates inclusion:` (erreur explicite) au filtrage silencieux — l'utilisateur doit savoir que sa saisie est rejetée, pas la voir disparaître.
 
-### State Machine (AASM)
-
-```ruby
-class Subscription < ApplicationRecord
-  include AASM
-
-  aasm column: :status do
-    state :pending, initial: true
-    state :active
-    state :suspended
-    state :cancelled
-
-    event :activate do
-      transitions from: :pending, to: :active
-      after { self.activated_at = Time.current }
-    end
-
-    event :suspend do
-      transitions from: :active, to: :suspended
-    end
-
-    event :cancel do
-      transitions from: %i[active suspended], to: :cancelled
-    end
-  end
-end
-```
+> **Cycle de vie / états contraints** (transitions entre statuts) : ne pas empiler des `update` libres, modéliser avec AASM → skill `state-machine`.
 
 ## Conventions de controllers
 
@@ -190,29 +181,7 @@ class SubscriptionsController < ApplicationController
 end
 ```
 
-## Form objects
-
-Un form object ne porte que ce qui **pilote l'opération**. Faire transiter une donnée purement d'**affichage**, redondante avec un identifiant déjà présent, est un smell : deux infos pour une même entité → risque de désync et état UI modélisé côté serveur.
-
-```ruby
-# Contexte : le SIRET identifie l'organisation ; le serveur re-résout le nom
-# via HubApi::Organization.find. organization_name ne sert qu'à un message.
-
-# ❌ le nom (affichage) transite et est validé alors qu'il est redondant
-#    avec le SIRET, seul identifiant réellement nécessaire pour créer l'objet
-validates :siret, presence: true, unless: -> { organization_name.present? }
-validate  :organization_selected   # vérifie la cohérence du couple nom + siret
-
-# ✅ le SIRET identifie l'organisation ; sa présence suffit côté serveur.
-#    Le nom reste une aide de saisie côté front (Stimulus), non soumise.
-validates :siret, presence: true
-```
-
-Corollaire : un champ qui ne sert qu'à l'UX côté client se rend **non soumis** plutôt que permis puis ignoré (voir skill `build-fix`, params soumis mais non permis).
-
-## Interactors & Organizers (logique métier)
-
-La logique métier multi-étapes (organizers + interactors, gem `interactor`) a sa propre skill : **`interactors`**. Elle couvre le nommage déduit du controller, le partage d'étapes, le rollback et l'ordonnancement par irréversibilité, le rejeu, la traduction des erreurs côté controller et les specs.
+Dès que la logique d'une action dépasse le scaffold, elle sort du controller — voir « Choisir un pattern » ci-dessus.
 
 ## Résolution des constantes namespacées
 
@@ -220,7 +189,9 @@ Une constante relative se résout lexicalement, de l'intérieur vers l'extérieu
 
 Avec Zeitwerk (Rails 6+), cette résolution est **déterministe** : les `autoload` sont enregistrés d'avance, une constante est visible avant d'être chargée. C'est le classic autoloader (avant Rails 6) qui pouvait résoudre vers la mauvaise constante homonyme selon l'ordre de chargement — ce problème n'existe plus.
 
-## Rescue scope
+## Error handling
+
+### Rescue scope
 
 Garder le rescue au plus proche de la ligne qui peut lever l'exception. Si l'action API est au milieu d'une méthode, l'extraire dans une méthode privée avec son propre rescue.
 
@@ -281,33 +252,6 @@ rescue ArgumentError, TypeError
 end
 ```
 
-## Display methods pour données API externes
-
-Quand on affiche des données issues d'une API externe, traiter tous les champs de façon identique : implémenter des méthodes `display_*` avec fallback pour chaque champ, sans conditions asymétriques.
-
-```ruby
-# ✅ Contrat uniforme avec fallbacks via define_method
-DISPLAY_FALLBACKS = {
-  name: "Nom manquant",
-  siret: "SIRET manquant",
-  branch_code: nil,
-  type: "Type inconnu"
-}.freeze
-
-DISPLAY_FALLBACKS.each_key do |field|
-  define_method(:"display_#{field}") do
-    send(field).presence || DISPLAY_FALLBACKS[field]
-  end
-end
-
-# ❌ Condition asymétrique (pourquoi seulement branch_code ?)
-def label
-  parts = ["#{name} — SIRET #{siret}"]
-  parts << "branche #{branch_code}" if branch_code.present?
-  parts.join(", ")
-end
-```
-
 ## Fonctions pures
 
 Quand une méthode est une fonction générique (parser, formateur, utilitaire de robustesse) sans lien
@@ -334,45 +278,6 @@ module HubApi
 end
 # spec    : HubApi::TimeParser.parse("2024-13-01")
 # appelant: HubApi::TimeParser.parse(item["started_at"])
-```
-
-## Query Objects
-
-Pour les requêtes complexes :
-
-```ruby
-# app/queries/subscriptions_query.rb
-class SubscriptionsQuery
-  def initialize(relation = Subscription.all)
-    @relation = relation
-  end
-
-  def call(params = {})
-    result = @relation
-    result = filter_by_status(result, params[:status])
-    result = filter_by_organization(result, params[:organization_id])
-    result = search(result, params[:q])
-    result.includes(:organization, :process)
-  end
-
-  private
-
-  def filter_by_status(relation, status)
-    return relation if status.blank?
-    relation.where(status: status)
-  end
-
-  def filter_by_organization(relation, org_id)
-    return relation if org_id.blank?
-    relation.where(organization_id: org_id)
-  end
-
-  def search(relation, query)
-    return relation if query.blank?
-    relation.joins(:organization)
-      .where("organizations.name ILIKE ?", "%#{query}%")
-  end
-end
 ```
 
 ## Réaffectation de variables et chaînage de méthodes

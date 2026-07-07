@@ -76,8 +76,11 @@ Dans `<projet>/.claude/settings.json` :
 | `performance` | DB / Rails performance (N+1, indexing, pluck/find_each, caching, jobs) |
 | `plan` | Rédiger un plan d'implémentation (override `superpowers:writing-plans`) |
 | `principles` | Pousser back contre l'over-abstraction (YAGNI > KISS > DRY > SOLID, Rule of Three, Semantic DRY) |
-| `rails-patterns` | Models, controllers, services, queries, naming, method chaining |
+| `rails-patterns` | Conventions Rails génériques (naming, modèles, controllers, error handling) **+ routeur** de choix de pattern |
 | `interactors` | Logique métier multi-étapes (gem interactor) : nommage, partage, rollback/ordonnancement, rejeu, specs |
+| `query-objects` | Requête complexe (filtres conditionnels, recherche, jointures) dans `app/queries/` |
+| `form-objects` | Objet formulaire : ce qui pilote l'opération, champs non soumis (rendu : `frontend-rails`) |
+| `state-machine` | Cycle de vie / états contraints d'une ressource (gem AASM) |
 | `review` | Checklist review HubEE avant push/MR (Rails + RSpec + DSFR + RGAA + Keycloak) |
 | `security` | Audit sécurité Rails HubEE (SQL injection, XSS, mass assignment, Keycloak, brakeman) |
 | `tdd-workflow` | TDD RSpec/FactoryBot/SimpleCov 80% (override `superpowers:test-driven-development`) |

@@ -9,15 +9,7 @@ globs:
 
 La logique métier multi-étapes utilise la gem [interactor](https://github.com/collectiveidea/interactor) (`gem "interactor"`). Pas de service objects PORO ad-hoc pour la logique métier.
 
-**Frontière — où mettre la logique ?**
-- ✅ Une étape simple → méthode de modèle (YAGNI, voir skill `principles`)
-- ✅ Scaffold, ou complexité de niveau scaffold → code directement dans le controller
-- ✅ Au-dessus du scaffold → Organizer + Interactors dans `app/interactors/`, **même s'il n'y a qu'un seul interactor** (on passe alors automatiquement en organizer + interactor, pas de PORO ni de logique gonflée dans le controller)
-- ✅ Client API externe / adapter d'infrastructure → `lib/<client>/` (voir skills `api-client` et `authentication`)
-
-Le seuil de bascule est la complexité : tant qu'on reste au niveau d'un scaffold (CRUD direct, une ou deux lignes triviales), la logique reste dans le controller. Dès qu'on le dépasse, on bascule en organizer + interactor sans attendre d'avoir « assez » d'étapes pour le justifier.
-
-Pour les conventions Rails générales (modèles, controllers, form objects, query objects, style Ruby), voir la skill `rails-patterns`.
+**Quand passer en organizer + interactor** — le choix se fait dans le routeur de la skill `rails-patterns` (§ « Choisir un pattern ») : une étape simple reste une méthode de modèle, un scaffold reste dans le controller, et **dès qu'on dépasse la complexité d'un scaffold** on bascule en organizer + interactors dans `app/interactors/`, **même s'il n'y a qu'un seul interactor**. Cette skill couvre le *comment* une fois cette bascule décidée. Pour les conventions Rails génériques (modèles, controllers, style Ruby), voir `rails-patterns`.
 
 ## Organizer
 
