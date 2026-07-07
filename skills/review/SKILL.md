@@ -41,7 +41,8 @@ Le diff touche ces chemins → charger ces skills et confronter le diff à leur 
 
 | Le diff touche… | → charger |
 |---|---|
-| `app/models/`, `app/services/`, `app/interactors/` | `rails-patterns`, `principles` |
+| `app/models/`, `app/services/` | `rails-patterns`, `principles` |
+| `app/interactors/` | `interactors`, `principles` |
 | `spec/**` | `tdd-workflow` |
 | `app/views/`, `app/helpers/`, `app/javascript/`, `app/assets/` | `frontend-rails`, `dsfr-skill`, RGAA |
 | `sessions_controller`, `app/services/keycloak/`, `omniauth`, `concerns/authentication` | `authentication`, `security` |

@@ -1,11 +1,10 @@
 ---
 name: rails-patterns
-description: Conventions Rails : modèles, controllers, interactors (logique métier). À utiliser pour créer des modèles, des controllers ou des fonctionnalités Rails.
+description: "Conventions Rails : modèles, controllers, form objects, query objects, nommage, style Ruby. À utiliser pour créer des modèles, des controllers ou des fonctionnalités Rails. Pour la logique métier multi-étapes, voir la skill interactors."
 globs:
   - "app/models/**/*.rb"
   - "app/controllers/**/*.rb"
   - "app/services/**/*.rb"
-  - "app/interactors/**/*.rb"
 ---
 
 # Rails Patterns Skill
@@ -213,174 +212,13 @@ Corollaire : un champ qui ne sert qu'à l'UX côté client se rend **non soumis*
 
 ## Interactors & Organizers (logique métier)
 
-La logique métier multi-étapes utilise la gem [interactor](https://github.com/collectiveidea/interactor) (`gem "interactor"`). Pas de service objects PORO ad-hoc pour la logique métier.
+La logique métier multi-étapes (organizers + interactors, gem `interactor`) a sa propre skill : **`interactors`**. Elle couvre le nommage déduit du controller, le partage d'étapes, le rollback et l'ordonnancement par irréversibilité, le rejeu, la traduction des erreurs côté controller et les specs.
 
-**Frontière — où mettre la logique ?**
-- ✅ Une étape simple → méthode de modèle (YAGNI, voir skill `principles`)
-- ✅ Plusieurs étapes avec échec possible → Organizer + Interactors dans `app/interactors/`
-- ✅ Client API externe / adapter d'infrastructure → `app/services/<service>/` (voir skills `api-client` et `authentication`)
+## Résolution des constantes namespacées
 
-### Organizer
+Une constante relative se résout lexicalement, de l'intérieur vers l'extérieur : depuis `module Users`, `Shared::X` désigne `Users::Shared::X` s'il existe, sinon Ruby remonte jusqu'à la racine et trouve `::Shared::X`. Si les deux existent, c'est le plus proche qui gagne — pour viser explicitement un niveau supérieur, écrire le chemin complet (`HubEE::Shared::X`).
 
-Un organizer orchestre des interactors atomiques, exécutés dans l'ordre. Il ne contient aucune logique lui-même.
-
-```ruby
-# app/interactors/data_packages/transmit.rb
-module DataPackages
-  class Transmit
-    include Interactor::Organizer
-
-    organize Transmit::ValidateTransmission,
-      Transmit::ResolveRecipients,
-      Transmit::CreateNotifications,
-      Transmit::TransitionToTransmitted
-  end
-end
-```
-
-### Interactor
-
-Chaque interactor = une étape atomique. Le `context` transporte les données entre étapes ; `context.fail!` interrompt la chaîne.
-
-```ruby
-# app/interactors/data_packages/transmit/validate_transmission.rb
-module DataPackages
-  class Transmit
-    class ValidateTransmission
-      include Interactor
-
-      def call
-        context.fail!(error: :not_draft) unless data_package.draft?
-        context.fail!(error: :no_completed_attachments) unless data_package.has_completed_attachments?
-      end
-
-      private
-
-      def data_package
-        context.data_package
-      end
-    end
-  end
-end
-```
-
-### Rollback
-
-Si une étape échoue via `context.fail!`, `rollback` est appelé sur les étapes déjà exécutées (en ordre inverse). À définir sur chaque interactor qui crée ou modifie des données.
-
-```ruby
-def call
-  context.notifications = create_notifications
-end
-
-def rollback
-  context.notifications.each(&:destroy)
-end
-```
-
-Cas d'une étape qui appelle une API externe (Keycloak) : le rollback n'est pas automatique côté API, et tenter une compensation après un échec de création est souvent voué au même échec (mêmes causes réseau/validation). Documenter explicitement le choix plutôt que le laisser implicite :
-
-```ruby
-class CreateKeycloakUser
-  include Interactor
-
-  # Pas de rollback : une compensation Keycloak après un create_api_error a de
-  # bonnes chances d'échouer pour la même raison (réseau, 5xx). On préfère logger
-  # et laisser un état à corriger manuellement plutôt qu'échouer silencieusement
-  # une deuxième fois. Si une étape suivante s'intercale dans l'organizer,
-  # ajouter alors :
-  #
-  #   def rollback
-  #     Keycloak::UserClient.delete(id: context.created_user.user_id,
-  #                                 access_token: context.access_token)
-  #   end
-
-  def call
-    context.created_user = Keycloak::UserClient.create(...)
-  rescue Keycloak::UserClient::UserExistsError
-    context.fail!(error: :user_exists)
-  rescue Keycloak::Client::Error => e
-    Rails.logger.error("User creation failed: #{e.message}")
-    context.fail!(error: :create_api_error)
-  end
-end
-```
-
-### Usage dans un controller
-
-`context.fail!(error: :symbol)` passe un symbole via la clé de contexte `error:`, lisible directement par `result.error` (le `context` se comporte comme un OpenStruct, pas besoin de `result.context`). C'est au controller de traduire ce symbole en message utilisateur/API, jamais à l'interactor.
-
-```ruby
-def create
-  result = DataPackages::Transmit.call(data_package: @data_package)
-
-  if result.success?
-    render "api/v1/data_packages/show", status: :ok
-  else
-    render json: error_response(result.error), status: :unprocessable_content
-  end
-end
-```
-
-Exemple complet de traduction côté controller (form HTML, mais la même table sert un rendu JSON) :
-
-```ruby
-# app/controllers/subscriptions_controller.rb
-INTERACTOR_ERRORS = {
-  organization_not_found: {field: :siret, key: "users.shared.organization_not_found"},
-  user_exists:            {field: :email, key: "users.create.user_exists"},
-  create_api_error:       {field: :base,  key: "users.create.api_error"}
-}.freeze
-
-def create
-  result = Users::Create.call(user_form: @form)
-
-  if result.success?
-    redirect_to users_path, notice: t(".success")
-  else
-    apply_interactor_error(result)
-    render :new, status: :unprocessable_content
-  end
-end
-
-private
-
-def apply_interactor_error(result)
-  mapping = INTERACTOR_ERRORS.fetch(result.error)
-  @form.errors.add(mapping[:field], t(mapping[:key]))
-end
-```
-
-❌ **Anti-pattern** : muter `context.user_form.errors.add(...)` directement dans l'interactor pour aller plus vite. Ça couple la logique métier à la présentation et retire au controller la responsabilité de traduire l'échec — l'interactor ne connaît que des symboles, jamais des messages.
-
-### Specs
-
-Un fichier de spec par interactor et par organizer (`spec/interactors/...`).
-
-```ruby
-RSpec.describe DataPackages::Transmit::ValidateTransmission do
-  describe ".call" do
-    subject(:result) { described_class.call(data_package:) }
-
-    context "when package is not draft" do
-      let(:data_package) { create(:data_package, :transmitted) }
-
-      it { is_expected.to be_failure }
-
-      it "returns not_draft error" do
-        expect(result.error).to eq(:not_draft)
-      end
-    end
-  end
-end
-```
-
-**Règles** :
-- ✅ Arborescence : `app/interactors/<ressource>/<action>.rb` (organizer) + `app/interactors/<ressource>/<action>/<étape>.rb` (steps)
-- ✅ Erreurs symboliques : `context.fail!(error: :not_draft)` — le controller traduit en message utilisateur/API
-- ✅ Specs : `described_class.call(...)`, matchers `be_success` / `be_failure`, vérifier `result.error`
-- ❌ Pas de service object PORO pour la logique métier (les `app/services/` existants sont des adapters API)
-- ❌ Pas de logique métier dans l'organizer (il ne fait qu'`organize`)
+Avec Zeitwerk (Rails 6+), cette résolution est **déterministe** : les `autoload` sont enregistrés d'avance, une constante est visible avant d'être chargée. C'est le classic autoloader (avant Rails 6) qui pouvait résoudre vers la mauvaise constante homonyme selon l'ordre de chargement — ce problème n'existe plus.
 
 ## Rescue scope
 

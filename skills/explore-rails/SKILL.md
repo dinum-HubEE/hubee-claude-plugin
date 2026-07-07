@@ -126,6 +126,10 @@ app/
 ├── services/
 │   ├── <namespace>/                     (ex: Keycloak::, Subscriptions::)
 │   └── <namespace>/<action>.rb          (ex: Keycloak::LogoutUrlBuilder)
+├── interactors/                         (logique métier, gem interactor)
+│   ├── <resource>/<action>.rb           (organizer, = <Resource>Controller#<action>)
+│   ├── <resource>/<action>/<step>.rb    (interactor, étape atomique)
+│   └── <resource>/shared/<step>.rb      (étape partagée entre actions)
 ├── views/
 │   ├── layouts/
 │   ├── shared/                          (partials cross-controllers)
@@ -146,6 +150,7 @@ spec/
 ├── requests/                            (controllers = request specs HubEE)
 ├── models/
 ├── services/
+├── interactors/                        (un spec par organizer + par étape)
 ├── system/                              (E2E Capybara)
 ├── factories/                           (FactoryBot)
 └── support/                             (helpers, shared examples)
@@ -162,6 +167,7 @@ Beaucoup de questions sur l'architecture sont **déjà répondues dans les skill
 | "Comment ajouter du Turbo / Stimulus ?" | `hotwire` |
 | "Comment écrire une spec X ?" | `tdd-workflow` |
 | "Patterns de controller / service ?" | `rails-patterns` |
+| "Logique métier / interactor / organizer ?" | `interactors` |
 | "Décision d'architecture ?" | `architecture` |
 
 **Toujours vérifier ces skills d'abord** plutôt que de re-explorer la codebase si la doc existe déjà.
