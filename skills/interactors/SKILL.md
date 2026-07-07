@@ -13,7 +13,7 @@ La logique métier multi-étapes utilise la gem [interactor](https://github.com/
 - ✅ Une étape simple → méthode de modèle (YAGNI, voir skill `principles`)
 - ✅ Scaffold, ou complexité de niveau scaffold → code directement dans le controller
 - ✅ Au-dessus du scaffold → Organizer + Interactors dans `app/interactors/`, **même s'il n'y a qu'un seul interactor** (on passe alors automatiquement en organizer + interactor, pas de PORO ni de logique gonflée dans le controller)
-- ✅ Client API externe / adapter d'infrastructure → `app/services/<service>/` (voir skills `api-client` et `authentication`)
+- ✅ Client API externe / adapter d'infrastructure → `lib/<client>/` (voir skills `api-client` et `authentication`)
 
 Le seuil de bascule est la complexité : tant qu'on reste au niveau d'un scaffold (CRUD direct, une ou deux lignes triviales), la logique reste dans le controller. Dès qu'on le dépasse, on bascule en organizer + interactor sans attendre d'avoir « assez » d'étapes pour le justifier.
 
