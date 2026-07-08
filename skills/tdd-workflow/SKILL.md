@@ -290,6 +290,117 @@ def search_params(siret: "", organization_name: "", searched: "", user_type: "",
 end
 ```
 
+## Conventions `let` / `subject`
+
+Cinq règles, tirées de [l'article de référence](https://toppa.com/2026/rspec-5-rules-for-using-let-effectively/). Principe fondateur : **`let` est un outil de refactoring, pas un point de départ**, et il déclare un **objet du domaine partagé à l'identique** par tous les specs qui le voient — pas un levier pour faire varier le décor d'un contexte à l'autre.
+
+**Violer la lettre de ces règles, c'est violer leur esprit** : « je ne surcharge que l'axe qui varie » reste une surcharge.
+
+### 1. Inline d'abord, `let` seulement après coup (DAMP > DRY)
+
+Écrire le setup directement dans le `it`. N'extraire en `let` qu'à partir de **3 usages identiques** avérés. On ne repère la vraie duplication qu'après avoir écrit plusieurs tests ; la duplication dans une suite de tests est **acceptable** si elle rend chaque test lisible en autonomie (DAMP — *Descriptive And Meaningful Phrases* — prime sur DRY).
+
+Corollaire : ne pas monter une machinerie DRY (un `let` qui pilote un `before`) pour éviter de répéter trois lignes de `create`.
+
+```ruby
+# ❌ Machinerie prématurée : un let pilote la création dans un before partagé
+let(:active_subscriptions_count) { 0 }
+before { create_list(:subscription, active_subscriptions_count, :active, organization:) }
+
+context "with 4 active subscriptions" do
+  let(:active_subscriptions_count) { 4 }   # « mystery guest » : le lecteur remonte au before parent
+  it { expect(billing_tier).to eq(:paid) }
+end
+
+# ✅ Setup inline, chaque test se lit seul
+context "with 4 active subscriptions" do
+  it "is paid" do
+    organization = create(:organization)
+    create_list(:subscription, 4, :active, organization:)
+
+    expect(organization.billing_tier).to eq(:paid)
+  end
+end
+```
+
+### 2. 1 à 3 `let` par contexte (jamais plus de 5)
+
+Limiter les helpers mémoïsés d'un contexte à 1, 2, ou éventuellement 3 déclarations. Au-delà, la lisibilité se dégrade : le lecteur doit tracer de multiples définitions pour savoir quelles données existent réellement. Si un contexte accumule les `let`, c'est le signal de les **redescendre** dans les contextes enfants qui en ont réellement besoin (voir règle 4).
+
+### 3. Ne jamais redéfinir dans un enfant un `let` d'un contexte parent
+
+**La règle la plus enfreinte.** Si des contextes ont besoin de valeurs différentes, chacun déclare **son propre** `let` — on ne pose **pas** un défaut au niveau parent qu'on surcharge ensuite. Un `let` signifie : « cet objet représente le même état/concept dans **tous** les specs qui suivent ». Le surcharger contredit cette promesse et éparpille les définitions sur plusieurs niveaux d'imbrication.
+
+```ruby
+# ❌ let(:params) parent surchargé dans chaque enfant — « je ne redéfinis que ce qui varie »
+let(:params) { {} }
+context "with a valid siret" do
+  let(:params) { {search: {siret: "22770001000019"}} }   # surcharge
+  ...
+end
+context "with an invalid siret" do
+  let(:params) { {search: {siret: "123"}} }               # surcharge
+  ...
+end
+
+# ✅ Chaque contexte déclare son propre params, ou l'inline dans le it
+context "with a valid siret" do
+  it "renders the results table" do
+    get "/organizations", params: {search: {siret: "22770001000019"}}
+    ...
+  end
+end
+```
+
+Cette règle vaut aussi pour `subject` : préférer un `subject` nommé propre à chaque contexte plutôt qu'un `subject` parent redéfini.
+
+### 4. Les `let` d'un contexte doivent servir à TOUS ses tests
+
+Placer chaque `let` au niveau le plus étroit où **tous** les tests l'utilisent. Un `let` défini au-dessus de tests qui ne s'en servent pas est un **mystery guest** : une donnée cachée que le relecteur doit aller chercher loin. Le descendre dans le contexte concerné isole aussi les changements (un diff ne touche que les tests réellement concernés).
+
+Symptôme à bannir : « ce contexte s'appuie sur le défaut du parent ». Si un test ne pose pas explicitement ce dont il dépend, il ne devrait pas dépendre d'un `let` lointain.
+
+### 5. Pas d'action dans `let` / `subject`
+
+`let` ne sert qu'à **définir une valeur** (un objet du domaine). Tout effet de bord — créer/charger un enregistrement de façon impérative, envoyer un email, appeler un interactor — va dans un `before` ou **inline dans le `it`**, jamais dans un `let`. L'éval paresseuse rend sinon le moment d'exécution invisible : l'action ne se produit qu'au premier accès.
+
+```ruby
+# ❌ action masquée dans un let, déclenchée par effet de bord au premier accès
+let(:result) { Subscriptions::Create.call(organization:, process:) }
+
+# ✅ subject nomme l'appel, déclenché explicitement dans le it (cf. « expect plutôt que allow »)
+subject(:result) { described_class.call(organization:, process:) }
+
+it "creates the subscription and enqueues the email" do
+  expect(SubscriptionMailer).to receive(:created).and_return(message)
+
+  expect { result }.to change(Subscription, :count).by(1)   # déclenchement explicite
+  expect(result).to be_a_success
+end
+```
+
+> La section « `expect` plutôt que `allow` » impose déjà d'armer les expectations **avant** de déclencher l'action dans le `it` : un `before` qui appellerait le sujet s'exécuterait trop tôt. Déclencher inline est donc à la fois la règle `let` et la contrainte des message expectations.
+
+Le pattern de frontière gem (section ci-dessous) illustre déjà la règle : `let(:fake_client) { FakeClient.new }` est une **valeur** ; les actions (`fake_client.add_subscription(...)`) vivent dans le `before`.
+
+### Rationalisations à rejeter
+
+| Rationalisation | Réalité |
+|---|---|
+| « Je ne surcharge que l'axe qui varie, ça isole la cause » | Une surcharge reste une surcharge (règle 3). Déclarer le `let` dans chaque contexte, ou inliner. |
+| « Le défaut parent garde la variation visible » | Il crée un mystery guest : le lecteur doit remonter au parent (règle 4). |
+| « Un `let(:count)` + `create_list` en `before` évite de répéter » | Machinerie DRY prématurée (règle 1). Inliner tant qu'il n'y a pas 3 usages identiques. |
+| « Ce contexte s'appuie sur le défaut du parent » | Un test ne doit pas dépendre d'un `let` lointain qu'il ne pose pas (règle 4). |
+| « Mettre l'appel dans un `let` c'est plus concis » | L'action devient invisible et paresseuse (règle 5). `before` ou inline. |
+
+### Red flags — STOP
+
+- Un `let` (ou `subject`) redéfini à un niveau d'imbrication inférieur
+- Plus de 3 `let` dans un même contexte
+- Un `let` extrait alors qu'il n'a que 1 ou 2 usages
+- Un `let` défini au-dessus de tests qui ne l'utilisent pas
+- Un appel qui crée/envoie/charge enveloppé dans un `let`
+
 ## Commandes
 
 ```bash
