@@ -41,7 +41,8 @@ Le diff touche ces chemins → charger ces skills et confronter le diff à leur 
 
 | Le diff touche… | → charger |
 |---|---|
-| `app/models/`, `app/services/` | `rails-patterns`, `principles` |
+| `app/models/`, `app/services/` | `models`, `ruby-style`, `principles` |
+| `app/controllers/` | `controllers`, `choosing-a-pattern`, `ruby-style` |
 | `app/interactors/` | `interactors`, `principles` |
 | `spec/**` | `tdd-workflow` |
 | `app/views/`, `app/helpers/`, `app/javascript/`, `app/assets/` | `frontend-rails`, `dsfr-skill`, RGAA |

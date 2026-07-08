@@ -1,30 +1,14 @@
 ---
-name: rails-patterns
-description: "Conventions Rails génériques (nommage, modèles, controllers, style Ruby, error handling, temps, linting) ET routeur de choix de pattern : quel pattern écrire pour quel besoin (controller direct, méthode de modèle, interactor, query object, form object, state machine, vue). À utiliser pour créer n'importe quel fichier Rails ou pour décider où placer une logique."
+name: ruby-style
+description: "Style de code Ruby HubEE (transverse, non lié à un pattern) : nommage, méthodes de classe, résolution des constantes namespacées, error handling (scope du rescue, code mort), fonctions pures de module, réaffectation de variables et chaînage, imbrication de blocks, temps et fuseaux, linting StandardRB. À utiliser pour écrire ou relire n'importe quel code Ruby/Rails. Pour choisir QUEL pattern écrire, voir la skill choosing-a-pattern."
 globs:
   - "app/**/*.rb"
+  - "lib/**/*.rb"
 ---
 
-# Rails Patterns Skill
+# Ruby Style Skill
 
-Cette skill est le **socle** des conventions Ruby/Rails génériques **et le routeur** qui oriente vers le bon pattern. Commencer par « Choisir un pattern » pour décider *quoi écrire*, puis appliquer les conventions génériques ci-dessous.
-
-## Choisir un pattern
-
-Table de décision *orientée écriture* (« quel pattern écrire »). Complémentaire de la table *navigation* de la skill `explore-rails` (« où est X »).
-
-| Besoin | Pattern | Skill |
-|---|---|---|
-| Action triviale / CRUD scaffold | Logique **directement dans le controller** | *(ce fichier, § Controllers)* |
-| Une étape simple, liée à une entité | **Méthode de modèle** (YAGNI, pas de sur-abstraction) | `principles` |
-| Logique métier **au-dessus du scaffold** (multi-étapes, orchestration) | **Organizer + Interactor** (`app/interactors/`), même pour un seul interactor | `interactors` |
-| Requête complexe (filtres conditionnels, recherche, jointures) | **Query Object** (`app/queries/`) | `query-objects` |
-| Formulaire multi-champs / validation hors modèle | **Form Object** (`app/forms/`) | `form-objects` |
-| Cycle de vie / états contraints d'une ressource | **State Machine (AASM)** | `state-machine` |
-| Rendu, formulaire DSFR, interactions client | Vues / Turbo / Stimulus | `frontend-rails`, `hotwire` |
-| Client API externe / adapter d'infrastructure | Module dans `lib/<client>/` | `api-client`, `authentication` |
-
-**Le seuil central est la complexité, pas le nombre d'étapes.** Tant qu'on reste au niveau d'un scaffold (CRUD direct, une ou deux lignes triviales), la logique reste dans le controller. Dès qu'on le dépasse, on bascule vers le pattern dédié sans attendre d'avoir « assez » de matière pour le justifier — en particulier, on passe en organizer + interactor dès la première étape métier non triviale, pas de service object PORO ad-hoc.
+Conventions de code Ruby transverses, valables quel que soit le pattern. Elles ne disent pas *quoi* écrire (ça, c'est `choosing-a-pattern`) mais *comment* l'écrire proprement. Ce que StandardRB enforce déjà n'est pas répété ici (voir § Linting) — cette skill ne porte que le jugement qu'un cop ne couvre pas.
 
 ## Conventions de nommage
 
@@ -62,126 +46,6 @@ class Foo
   end
 end
 ```
-
-## Conventions de modèles
-
-### Structure standard d'un modèle
-
-```ruby
-class Subscription < ApplicationRecord
-  # === Constants ===
-  STATUSES = %w[pending active suspended cancelled].freeze
-
-  # === Associations ===
-  belongs_to :organization
-  belongs_to :process
-  has_many :events, dependent: :destroy
-
-  # === Validations ===
-  validates :status, presence: true, inclusion: { in: STATUSES }
-  validates :organization_id, uniqueness: { scope: :process_id }
-
-  # === Scopes ===
-  scope :active, -> { where(status: "active") }
-  scope :by_organization, ->(org_id) { where(organization_id: org_id) }
-  scope :recent, -> { order(created_at: :desc) }
-
-  # === Callbacks (à utiliser avec parcimonie) ===
-  after_create :notify_organization
-
-  # === Méthodes de classe ===
-  def self.for_dashboard
-    includes(:organization, :process).active.recent.limit(10)
-  end
-
-  # === Méthodes d'instance ===
-  def activate!
-    update!(status: "active", activated_at: Time.current)
-  end
-
-  def display_name
-    "#{organization.name} - #{process.name}"
-  end
-
-  private
-
-  def notify_organization
-    NotificationJob.perform_later(id)
-  end
-end
-```
-
-> **Valeur à liste fermée** (`select`, `enum`) : préférer `validates inclusion:` (erreur explicite) au filtrage silencieux — l'utilisateur doit savoir que sa saisie est rejetée, pas la voir disparaître.
-
-> **Cycle de vie / états contraints** (transitions entre statuts) : ne pas empiler des `update` libres, modéliser avec AASM → skill `state-machine`.
-
-## Conventions de controllers
-
-### Controller RESTful
-
-```ruby
-class SubscriptionsController < ApplicationController
-  before_action :set_subscription, only: %i[show edit update destroy]
-
-  def index
-    @subscriptions = policy_scope(Subscription)
-      .includes(:organization, :process)
-      .page(params[:page])
-  end
-
-  def show
-    authorize @subscription
-  end
-
-  def new
-    @subscription = Subscription.new
-    authorize @subscription
-  end
-
-  def create
-    @subscription = Subscription.new(subscription_params)
-    authorize @subscription
-
-    if @subscription.save
-      redirect_to @subscription, notice: t(".success")
-    else
-      render :new, status: :unprocessable_entity
-    end
-  end
-
-  def edit
-    authorize @subscription
-  end
-
-  def update
-    authorize @subscription
-
-    if @subscription.update(subscription_params)
-      redirect_to @subscription, notice: t(".success")
-    else
-      render :edit, status: :unprocessable_entity
-    end
-  end
-
-  def destroy
-    authorize @subscription
-    @subscription.destroy
-    redirect_to subscriptions_path, notice: t(".success")
-  end
-
-  private
-
-  def set_subscription
-    @subscription = Subscription.find(params[:id])
-  end
-
-  def subscription_params
-    params.require(:subscription).permit(:organization_id, :process_id, :notes)
-  end
-end
-```
-
-Dès que la logique d'une action dépasse le scaffold, elle sort du controller — voir « Choisir un pattern » ci-dessus.
 
 ## Résolution des constantes namespacées
 

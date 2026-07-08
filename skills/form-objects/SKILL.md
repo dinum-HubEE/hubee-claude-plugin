@@ -1,6 +1,6 @@
 ---
 name: form-objects
-description: "Form objects HubEE : objet qui pilote une opération (validation hors modèle, formulaire multi-champs, données qui ne mappent pas 1-1 sur un AR). Règle centrale — ne porter que ce qui pilote l'opération, rendre non soumis ce qui ne sert qu'à l'UX. Pour le rendu DSFR du form (form builder, view methods), voir la skill frontend-rails. Pour le choix du pattern, voir le routeur de rails-patterns."
+description: "Form objects HubEE : objet qui pilote une opération (validation hors modèle, formulaire multi-champs, données qui ne mappent pas 1-1 sur un AR). Règle centrale — ne porter que ce qui pilote l'opération, rendre non soumis ce qui ne sert qu'à l'UX. Pour le rendu DSFR du form (form builder, view methods), voir la skill frontend-rails. Pour le choix du pattern, voir la skill choosing-a-pattern."
 globs:
   - "app/forms/**/*.rb"
 ---
