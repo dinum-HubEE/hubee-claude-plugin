@@ -166,8 +166,13 @@ Beaucoup de questions sur l'architecture sont **déjà répondues dans les skill
 | "Comment écrire un service appelant une API externe ?" | `api-client` |
 | "Comment ajouter du Turbo / Stimulus ?" | `hotwire` |
 | "Comment écrire une spec X ?" | `tdd-workflow` |
-| "Patterns de controller / service ?" | `rails-patterns` |
+| "Quel pattern écrire pour X ?" | `choosing-a-pattern` (choix de pattern) |
+| "Conventions controller / modèle ?" | `controllers`, `models` |
+| "Style de code Ruby (nommage, chaînage, error handling, temps) ?" | `ruby-style` |
 | "Logique métier / interactor / organizer ?" | `interactors` |
+| "Requête complexe / query object ?" | `query-objects` |
+| "Objet formulaire ?" | `form-objects` |
+| "Cycle de vie / états / AASM ?" | `state-machine` |
 | "Décision d'architecture ?" | `architecture` |
 
 **Toujours vérifier ces skills d'abord** plutôt que de re-explorer la codebase si la doc existe déjà.

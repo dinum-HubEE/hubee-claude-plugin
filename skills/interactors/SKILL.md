@@ -9,15 +9,7 @@ globs:
 
 La logique métier multi-étapes utilise la gem [interactor](https://github.com/collectiveidea/interactor) (`gem "interactor"`). Pas de service objects PORO ad-hoc pour la logique métier.
 
-**Frontière — où mettre la logique ?**
-- ✅ Une étape simple → méthode de modèle (YAGNI, voir skill `principles`)
-- ✅ Scaffold, ou complexité de niveau scaffold → code directement dans le controller
-- ✅ Au-dessus du scaffold → Organizer + Interactors dans `app/interactors/`, **même s'il n'y a qu'un seul interactor** (on passe alors automatiquement en organizer + interactor, pas de PORO ni de logique gonflée dans le controller)
-- ✅ Client API externe / adapter d'infrastructure → `lib/<client>/` (voir skills `api-client` et `authentication`)
-
-Le seuil de bascule est la complexité : tant qu'on reste au niveau d'un scaffold (CRUD direct, une ou deux lignes triviales), la logique reste dans le controller. Dès qu'on le dépasse, on bascule en organizer + interactor sans attendre d'avoir « assez » d'étapes pour le justifier.
-
-Pour les conventions Rails générales (modèles, controllers, form objects, query objects, style Ruby), voir la skill `rails-patterns`.
+**Quand passer en organizer + interactor** — c'est une décision de *choix de pattern*, tranchée par `choosing-a-pattern` (§ « Choisir un pattern »). Cette skill ne reprend pas le critère ; elle couvre le *comment* une fois la bascule décidée. Pour le style de code Ruby transverse (nommage, chaînage, error handling), voir `ruby-style`.
 
 ## Organizer
 
@@ -323,7 +315,7 @@ end
 - ✅ Arborescence : `app/interactors/[<namespace>/]<ressource>/<action>.rb` (organizer) + `.../<action>/<étape>.rb` (steps) — interactor toujours namespacé sous son organizer
 - ✅ Étape partagée → sous-namespace `shared` remonté au premier niveau couvrant tous les usages (ressource → namespace → global `HubEE`, racine nue seulement sans namespace de premier niveau), pas de duplication d'une même intention
 - ✅ Mutualiser un morceau de logique (pas une étape entière) → concern d'interactor dans `app/interactors/concerns/`, pas un service PORO ; le `context.fail!` reste dans l'étape, jamais dans le concern
-- ✅ Bascule en organizer + interactor dès qu'on dépasse la complexité d'un scaffold, même pour un seul interactor
+- ✅ Une fois la bascule décidée (par `choosing-a-pattern`), toujours un organizer **et** un interactor, même pour un seul interactor
 - ✅ Étapes ordonnées par irréversibilité croissante : locales (rollbackables) d'abord, calls externes rejouables ensuite, l'éventuel non-rejouable en dernier — jamais de rollback compensatoire vers une API externe, le rejeu de l'organizer est la récupération
 - ✅ Erreurs symboliques : `context.fail!(error: :not_draft)` — le controller traduit en message utilisateur/API
 - ✅ Specs : `described_class.call(...)`, matchers `be_success` / `be_failure`, vérifier `result.error`

@@ -68,7 +68,7 @@ end
 
 ## Linting
 
-StandardRB — même convention que les apps HubEE (voir `rails-patterns`). Ajouter dans le gemspec :
+StandardRB — même convention que les apps HubEE (voir `ruby-style`). Ajouter dans le gemspec :
 
 ```ruby
 spec.add_development_dependency "standard"

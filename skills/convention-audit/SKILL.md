@@ -27,7 +27,7 @@ Tout le projet par défaut, ou un sous-arbre ciblé. Lister les fichiers par typ
 
 Critère : **« COMMENT le code doit être écrit »** → audité ; **« workflow / quoi faire quand »** → ignoré.
 
-- **Audités** : `principles`, `rails-patterns`, `interactors`, `tdd-workflow` (conventions), `frontend-rails`, `api-client`, `hotwire`, `authentication`, `security`, `performance`.
+- **Audités** : `principles`, `choosing-a-pattern`, `models`, `controllers`, `ruby-style`, `interactors`, `tdd-workflow` (conventions), `frontend-rails`, `api-client`, `hotwire`, `authentication`, `security`, `performance`.
 - **Ignorés** (process) : `commit`, `review`, `finishing-branch`, `plan`, `execute`, `gitlab`, `explore-rails`, `build-fix`.
 
 **REQUIS** : réutiliser la **table de routage de la skill `review`** pour associer chemins → skills (single-source, pas de copie). **Charger** chaque skill applicable ; ne jamais recopier ses règles ici.

@@ -374,6 +374,33 @@ end
 
 **Quand utiliser** : dès que l'API renvoie le total dans `Content-Range` (comportement courant des APIs RESTful paginées qui suivent la RFC 7233). Si `Content-Range` est absent, `from_response` retourne `total: 0`.
 
+### Display methods pour l'affichage
+
+Les données d'une API externe arrivent incomplètes (champ absent, `null`). Pour les afficher, traiter **tous les champs de façon identique** : une méthode `display_*` avec fallback par champ, sans condition asymétrique. Un objet métier (`Data.define` ou classe) qui expose ces champs porte le contrat d'affichage de façon uniforme.
+
+```ruby
+# ✅ Contrat uniforme avec fallbacks via define_method
+DISPLAY_FALLBACKS = {
+  name: "Nom manquant",
+  siret: "SIRET manquant",
+  branch_code: nil,
+  type: "Type inconnu"
+}.freeze
+
+DISPLAY_FALLBACKS.each_key do |field|
+  define_method(:"display_#{field}") do
+    send(field).presence || DISPLAY_FALLBACKS[field]
+  end
+end
+
+# ❌ Condition asymétrique (pourquoi seulement branch_code ?)
+def label
+  parts = ["#{name} — SIRET #{siret}"]
+  parts << "branche #{branch_code}" if branch_code.present?
+  parts.join(", ")
+end
+```
+
 ## Consommation dans les controllers
 
 ```ruby

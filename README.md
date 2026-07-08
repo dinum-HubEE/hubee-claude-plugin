@@ -76,8 +76,14 @@ Dans `<projet>/.claude/settings.json` :
 | `performance` | DB / Rails performance (N+1, indexing, pluck/find_each, caching, jobs) |
 | `plan` | Rédiger un plan d'implémentation (override `superpowers:writing-plans`) |
 | `principles` | Pousser back contre l'over-abstraction (YAGNI > KISS > DRY > SOLID, Rule of Three, Semantic DRY) |
-| `rails-patterns` | Models, controllers, services, queries, naming, method chaining |
+| `choosing-a-pattern` | **Choix de pattern** : quel pattern écrire pour quel besoin |
+| `models` | Conventions des modèles ActiveRecord (structure standard, validations à liste fermée, scopes) |
+| `controllers` | Conventions des controllers RESTful (actions, strong params, Pundit, réponses) |
+| `ruby-style` | Style de code Ruby transverse (nommage, chaînage, blocks, error handling, temps, linting StandardRB) |
 | `interactors` | Logique métier multi-étapes (gem interactor) : nommage, partage, rollback/ordonnancement, rejeu, specs |
+| `query-objects` | Requête complexe (filtres conditionnels, recherche, jointures) dans `app/queries/` |
+| `form-objects` | Objet formulaire : ce qui pilote l'opération, champs non soumis (rendu : `frontend-rails`) |
+| `state-machine` | Cycle de vie / états contraints d'une ressource (gem AASM) |
 | `review` | Checklist review HubEE avant push/MR (Rails + RSpec + DSFR + RGAA + Keycloak) |
 | `security` | Audit sécurité Rails HubEE (SQL injection, XSS, mass assignment, Keycloak, brakeman) |
 | `tdd-workflow` | TDD RSpec/FactoryBot/SimpleCov 80% (override `superpowers:test-driven-development`) |
@@ -109,6 +115,12 @@ Chaque règle a un seul responsable. Ne pas dupliquer une règle d'une couche à
 **Règle d'or** : si StandardRB l'enforce déjà, ne pas le mettre dans un skill (token gaspillé + moins fiable — StandardRB corrige, un skill ne fait qu'espérer). Les hooks ne ré-encodent jamais un pattern de convention déjà décrit dans un skill (sinon duplication de connaissance). Un skill se mesure à sa **densité de signal** pour le modèle, pas à sa lisibilité humaine : un mur de texte dilue l'attention.
 
 **Le plugin est cross-app.** Il n'encode que des conventions valables pour **toutes** les apps HubEE. Toute règle spécifique à une app (schéma de données, architecture de persistance, parcours métier) appartient au `CLAUDE.md` de cette app, **pas** au plugin partagé : une règle qui suppose l'architecture d'une seule app produirait un faux positif ailleurs.
+
+### Choix des patterns (source unique)
+
+`choosing-a-pattern` **choisit le pattern** : cette skill détient à elle seule le « quel pattern écrire », frontière avec le cran en dessous incluse (query object vs scope de modèle, AASM vs `update` libre, interactor vs méthode de modèle). Elle ne contient **aucune convention de code** — le style Ruby transverse vit dans `ruby-style`, les conventions d'un pattern dans sa skill. Chaque skill de pattern (`controllers`, `models`, `interactors`, `query-objects`, `form-objects`, `state-machine`) ne couvre que le « **est-ce bien implémenté** » une fois le choix fait. Ne pas reformuler le seuil de bascule ailleurs — corps, checklist **ou** `description:` du frontmatter : deux copies = désync garantie dès que ce choix évolue. La `description:` garde un déclencheur de *situation* (« dès qu'une action index accumule des scopes conditionnels »), jamais une comparaison inter-pattern (« ou trop grosse pour un scope de modèle »).
+
+**Corollaire sur les renvois.** Une skill ne renvoie que vers **`choosing-a-pattern`** (le choix de pattern) ou une skill **générique** — non nommée d'après un pattern : `ruby-style`, `security`, `frontend-rails`, `principles`, `hotwire`… Jamais vers une skill de pattern par son nom : cela présumerait le pattern d'arrivée, qui est la décision de `choosing-a-pattern` (ex. ✗ `state-machine` → `interactors` pour « logique qui déborde » ; ✓ `state-machine` → `choosing-a-pattern`). Exempts : `choosing-a-pattern` lui-même, et les index/méta qui énumèrent les skills par nature (`explore-rails`, `review`, `convention-audit`).
 
 ### Doctrine de handoff (médiation humaine)
 
