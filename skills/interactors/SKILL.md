@@ -9,7 +9,7 @@ globs:
 
 La logique métier multi-étapes utilise la gem [interactor](https://github.com/collectiveidea/interactor) (`gem "interactor"`). Pas de service objects PORO ad-hoc pour la logique métier.
 
-**Quand passer en organizer + interactor** — le choix se fait dans le routeur de la skill `rails-patterns` (§ « Choisir un pattern ») : une étape simple reste une méthode de modèle, un scaffold reste dans le controller, et **dès qu'on dépasse la complexité d'un scaffold** on bascule en organizer + interactors dans `app/interactors/`, **même s'il n'y a qu'un seul interactor**. Cette skill couvre le *comment* une fois cette bascule décidée. Pour les conventions Rails génériques (modèles, controllers, style Ruby), voir `rails-patterns`.
+**Quand passer en organizer + interactor** — c'est une décision de *routage*, tranchée par le routeur de la skill `rails-patterns` (§ « Choisir un pattern »). Cette skill ne reprend pas le critère ; elle couvre le *comment* une fois la bascule décidée. Pour les conventions Rails génériques (modèles, controllers, style Ruby), voir aussi `rails-patterns`.
 
 ## Organizer
 
@@ -315,7 +315,7 @@ end
 - ✅ Arborescence : `app/interactors/[<namespace>/]<ressource>/<action>.rb` (organizer) + `.../<action>/<étape>.rb` (steps) — interactor toujours namespacé sous son organizer
 - ✅ Étape partagée → sous-namespace `shared` remonté au premier niveau couvrant tous les usages (ressource → namespace → global `HubEE`, racine nue seulement sans namespace de premier niveau), pas de duplication d'une même intention
 - ✅ Mutualiser un morceau de logique (pas une étape entière) → concern d'interactor dans `app/interactors/concerns/`, pas un service PORO ; le `context.fail!` reste dans l'étape, jamais dans le concern
-- ✅ Bascule en organizer + interactor dès qu'on dépasse la complexité d'un scaffold, même pour un seul interactor
+- ✅ Une fois la bascule décidée (routeur `rails-patterns`), toujours un organizer **et** un interactor, même pour un seul interactor
 - ✅ Étapes ordonnées par irréversibilité croissante : locales (rollbackables) d'abord, calls externes rejouables ensuite, l'éventuel non-rejouable en dernier — jamais de rollback compensatoire vers une API externe, le rejeu de l'organizer est la récupération
 - ✅ Erreurs symboliques : `context.fail!(error: :not_draft)` — le controller traduit en message utilisateur/API
 - ✅ Specs : `described_class.call(...)`, matchers `be_success` / `be_failure`, vérifier `result.error`

@@ -7,7 +7,7 @@ globs:
 
 # State Machine Skill
 
-Dès qu'une ressource a un cycle de vie — un champ `status` dont les transitions sont **contraintes** (on ne passe pas de `cancelled` à `active`) — on le modélise avec la gem [AASM](https://github.com/aasm/aasm) plutôt qu'avec des `update` libres et des `validates inclusion`. AASM rend les transitions explicites, refuse les sauts illégaux et donne des prédicats d'état (`active?`) et des événements (`activate!`).
+Un cycle de vie — un champ `status` dont les transitions sont **contraintes** (on ne passe pas de `cancelled` à `active`) — se modélise avec la gem [AASM](https://github.com/aasm/aasm). Le choix d'AASM plutôt que des `update` libres et des `validates inclusion` est tranché par le routeur `rails-patterns` (§ « Choisir un pattern ») ; cette skill couvre son implémentation. AASM rend les transitions explicites, refuse les sauts illégaux et donne des prédicats d'état (`active?`) et des événements (`activate!`).
 
 ```ruby
 class Subscription < ApplicationRecord
@@ -41,4 +41,4 @@ end
 - ✅ Une seule `initial: true`.
 - ✅ Les effets de bord d'une transition passent par les callbacks de transition (`after`, `before`, `guard`), pas par du code dispersé chez l'appelant.
 - ✅ `from` peut lister plusieurs états sources (`from: %i[active suspended]`) ; une transition illégale lève `AASM::InvalidTransition`.
-- ✅ Logique métier multi-étapes autour d'une transition (résoudre une orga, appeler une API, notifier) → ce n'est plus l'affaire du modèle : c'est un organizer + interactor dont une étape déclenche l'événement AASM (voir skill `interactors`).
+- ✅ Logique métier multi-étapes autour d'une transition (résoudre une orga, appeler une API, notifier) → ce n'est plus l'affaire du modèle ; quel pattern l'accueille relève du routeur `rails-patterns`. La transition AASM reste déclenchée par ce pattern, jamais dispersée chez l'appelant.

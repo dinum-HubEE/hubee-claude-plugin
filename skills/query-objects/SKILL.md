@@ -1,15 +1,13 @@
 ---
 name: query-objects
-description: "Query objects HubEE : extraire une requête complexe (filtres conditionnels, recherche, jointures) hors du controller et du modèle dans app/queries/. À utiliser dès qu'une action index accumule des scopes conditionnels ou qu'une requête devient trop grosse pour un scope de modèle. Pour le choix du pattern, voir le routeur de la skill rails-patterns."
+description: "Query objects HubEE : extraire une requête complexe (filtres conditionnels, recherche, jointures) hors du controller et du modèle dans app/queries/. À utiliser dès qu'une action index accumule des scopes conditionnels. Pour le choix du pattern (notamment query object vs scope de modèle), voir le routeur de la skill rails-patterns."
 globs:
   - "app/queries/**/*.rb"
 ---
 
 # Query Objects Skill
 
-Un query object isole une **requête complexe** hors du controller et du modèle. On y bascule dès qu'une action accumule des filtres conditionnels, une recherche et des jointures — c'est-à-dire dès qu'un `scope` de modèle ne suffit plus et qu'empiler la logique dans le controller le gonfle.
-
-Tant qu'on reste sur un ou deux `where`/`scope` triviaux, ça reste un **scope de modèle** (YAGNI, voir skill `principles`). Le query object est le cran au-dessus, pas le réflexe par défaut.
+Un query object isole une **requête complexe** (filtres conditionnels, recherche, jointures) hors du controller et du modèle. Le choix d'y basculer plutôt que de rester sur un scope de modèle est une décision de routage, tranchée par le routeur `rails-patterns` (§ « Choisir un pattern ») — cette skill couvre l'implémentation une fois ce choix fait.
 
 ## Structure
 
