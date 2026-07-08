@@ -1,14 +1,12 @@
 ---
 name: rspec-conventions
-description: "Conventions d'écriture des specs RSpec HubEE (tous types) : descriptions en anglais, un cas = un it = N expects, assertions positives, let/subject, expect plutôt que allow, hash complet vs hash_including, factories FactoryBot, matrices d'état, form specs sans type:model, dates relatives, helpers, + spécificités request/system (have_http_status, Capybara, frontière gem HTTP). À utiliser pour écrire ou relire n'importe quel spec. Pour décider QUOI/OÙ tester et la couverture, voir la skill test-strategy. Le cycle RED-GREEN-REFACTOR est délégué à superpowers:test-driven-development."
+description: "Conventions d'écriture des specs RSpec HubEE (tous types) : descriptions en anglais, un cas = un it = N expects, assertions positives, let/subject, expect plutôt que allow, hash complet vs hash_including, factories FactoryBot, matrices d'état, form specs sans type:model, dates relatives, helpers, + spécificités request/system (have_http_status, Capybara, frontière gem HTTP). À utiliser pour écrire ou relire n'importe quel spec. Pour décider QUOI/OÙ tester et la couverture, voir la skill test-strategy."
 globs:
   - "spec/**/*.rb"
   - "spec/factories/**/*.rb"
   - "spec/support/**/*.rb"
 ---
 
-> **Complète `superpowers:test-driven-development`** : son cycle RED-GREEN-REFACTOR s'applique tel quel ; cette skill ajoute uniquement les conventions d'écriture de specs HubEE ci-dessous.
->
 > Pour décider **quoi/où** tester et la couverture (ce qu'il ne faut pas tester, niveaux de frontière gem, organizer/step, objectif SimpleCov) → skill `test-strategy`.
 
 # Conventions d'écriture RSpec HubEE
