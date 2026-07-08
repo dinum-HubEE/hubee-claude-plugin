@@ -324,6 +324,30 @@ def filtered_collection
 end
 ```
 
+### Ne pas imbriquer les blocks
+
+Un block dans un block noie l'intention. **Deux niveaux d'imbrication au maximum, jamais trois** (StandardRB ne le voit pas — cops `Metrics/*` désactivés —, c'est à nous de tenir la règle). Et même à deux niveaux, on allège :
+
+- **Minimum** : un `do…end` sur le block externe, pour que l'imbrication saute aux yeux.
+- **Mieux** : extraire le block interne dans une **méthode nommée** par intention, qui fait disparaître l'imbrication.
+
+```ruby
+# ❌ deux blocks imbriqués en accolades — intention noyée
+users.each { |u| u.roles.each { |r| grants << Grant.new(user: u, role: r, scope: default_scope(u)) } }
+
+# ✅ acceptable — do…end externe, l'imbrication est lisible
+users.each do |u|
+  u.roles.each { |r| grants << Grant.new(user: u, role: r, scope: default_scope(u)) }
+end
+
+# ✅✅ mieux — le block interne devient une méthode
+users.each { |u| grant_all_roles(u) }
+
+def grant_all_roles(user)
+  user.roles.each { |role| grants << Grant.new(user:, role:, scope: default_scope(user)) }
+end
+```
+
 ## Temps et fuseaux horaires
 
 Utiliser `Time.current` partout, jamais `Time.now` qui ignore `config.time_zone` de Rails.
