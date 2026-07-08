@@ -16,4 +16,4 @@ description: Exécuter un plan d'implémentation HubEE step-by-step (override de
 ### Skills HubEE pendant l'exécution
 
 - Tout commit → invoquer la skill `commit` du plugin (jamais `git commit` direct, jamais bypass `bin/ci`)
-- Tout test → suivre la skill `tdd-workflow` du plugin (RSpec/FactoryBot/SimpleCov, descriptions en anglais, RED-GREEN-REFACTOR)
+- Tout test → suivre les skills `rspec-conventions` (+ `test-strategy` pour le périmètre) du plugin (RSpec/FactoryBot/SimpleCov, descriptions en anglais, RED-GREEN-REFACTOR)

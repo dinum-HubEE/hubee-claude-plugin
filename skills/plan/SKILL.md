@@ -33,4 +33,4 @@ Branche au format Conventional Commits, slug en kebab-case court :
 ### Skills HubEE référencées dans les steps
 
 - Steps "commit" → invoquer la skill `commit` du plugin (pas `git commit` direct dans le step)
-- Steps "écrire un test" → suivre la skill `tdd-workflow` du plugin (RSpec/FactoryBot/SimpleCov, descriptions en anglais)
+- Steps "écrire un test" → suivre les skills `rspec-conventions` (+ `test-strategy` pour le périmètre) du plugin (RSpec/FactoryBot/SimpleCov, descriptions en anglais)

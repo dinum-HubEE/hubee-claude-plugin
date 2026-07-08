@@ -86,7 +86,8 @@ Dans `<projet>/.claude/settings.json` :
 | `state-machine` | Cycle de vie / états contraints d'une ressource (gem AASM) |
 | `review` | Checklist review HubEE avant push/MR (Rails + RSpec + DSFR + RGAA + Keycloak) |
 | `security` | Audit sécurité Rails HubEE (SQL injection, XSS, mass assignment, Keycloak, brakeman) |
-| `tdd-workflow` | TDD RSpec/FactoryBot/SimpleCov 80% (override `superpowers:test-driven-development`) |
+| `rspec-conventions` | Conventions d'écriture des specs RSpec, tous types (transverse + request/system ; cycle délégué à `superpowers:test-driven-development`) |
+| `test-strategy` | Quoi/où tester + objectif de couverture SimpleCov 90% |
 
 ## Hooks
 

@@ -165,7 +165,7 @@ Beaucoup de questions sur l'architecture sont **déjà répondues dans les skill
 | "Comment marche l'auth Keycloak ?" | `authentication` |
 | "Comment écrire un service appelant une API externe ?" | `api-client` |
 | "Comment ajouter du Turbo / Stimulus ?" | `hotwire` |
-| "Comment écrire une spec X ?" | `tdd-workflow` |
+| "Comment écrire une spec X ?" | `rspec-conventions` |
 | "Quel pattern écrire pour X ?" | `choosing-a-pattern` (choix de pattern) |
 | "Conventions controller / modèle ?" | `controllers`, `models` |
 | "Style de code Ruby (nommage, chaînage, error handling, temps) ?" | `ruby-style` |

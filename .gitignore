@@ -6,5 +6,5 @@
 # Résidu de découpage de commits/MR (ne doit jamais être versionné)
 .split-changes.patch
 
-# Plans superpowers (générés à chaque session, pas du contenu plugin)
-docs/superpowers/plans/
+# Superpowers (plans/specs générés à chaque session, pas du contenu plugin)
+docs/superpowers/

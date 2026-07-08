@@ -10,7 +10,7 @@
     {
       "name": "hubee-claude-plugin",
       "source": "./",
-      "description": "Skills (principles, security, performance, choosing-a-pattern, models, controllers, ruby-style, interactors, query-objects, form-objects, state-machine, hotwire, frontend-rails, authentication, api-client, tdd-workflow, e2e, plan, execute, commit, finishing-branch, explore-rails, gitlab, review, convention-audit, hubee-recap, build-fix, architecture) et hooks (pre-bash, pre-edit-secrets, pre-edit-rspec-hint, post-edit-standardrb, on-stop, on-notification) communs aux projets HubEE.",
+      "description": "Skills (principles, security, performance, choosing-a-pattern, models, controllers, ruby-style, interactors, query-objects, form-objects, state-machine, hotwire, frontend-rails, authentication, api-client, rspec-conventions, test-strategy, e2e, plan, execute, commit, finishing-branch, explore-rails, gitlab, review, convention-audit, hubee-recap, build-fix, architecture) et hooks (pre-bash, pre-edit-secrets, pre-edit-rspec-hint, post-edit-standardrb, on-stop, on-notification) communs aux projets HubEE.",
       "author": {
         "name": "DINUM HubEE"
       },

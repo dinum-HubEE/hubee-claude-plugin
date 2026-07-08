@@ -44,13 +44,13 @@ Le diff touche ces chemins → charger ces skills et confronter le diff à leur 
 | `app/models/`, `app/services/` | `models`, `ruby-style`, `principles` |
 | `app/controllers/` | `controllers`, `choosing-a-pattern`, `ruby-style` |
 | `app/interactors/` | `interactors`, `principles` |
-| `spec/**` | `tdd-workflow` |
+| `spec/**` | `rspec-conventions`, `test-strategy` |
 | `app/views/`, `app/helpers/`, `app/javascript/`, `app/assets/` | `frontend-rails`, `dsfr-skill`, RGAA |
 | `sessions_controller`, `app/services/keycloak/`, `omniauth`, `concerns/authentication` | `authentication`, `security` |
 | `lib/http_client`, `lib/hub_api`, `lib/keycloak` | `api-client` |
 | `.claude/`, `.agent-vm.runtime.sh`, `.claude-container/` | vérifications agent-vm (ci-dessous) |
 
-Mention rapide pour ne rien oublier : diff touche des vues ? → `frontend-rails` + `dsfr-skill` + RGAA. Diff touche des specs ? → `tdd-workflow`. Ne **pas** recopier le détail des règles ici : on les lit dans le skill chargé.
+Mention rapide pour ne rien oublier : diff touche des vues ? → `frontend-rails` + `dsfr-skill` + RGAA. Diff touche des specs ? → `rspec-conventions` (+ `test-strategy` pour le périmètre). Ne **pas** recopier le détail des règles ici : on les lit dans le skill chargé.
 
 ## Vérifications natives
 

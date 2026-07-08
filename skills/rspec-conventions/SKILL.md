@@ -1,15 +1,17 @@
 ---
-name: tdd-workflow
-description: Méthodologie TDD et conventions de tests RSpec HubEE. À utiliser pour écrire des tests ou des specs, créer des fonctionnalités en TDD, ou déboguer des échecs de tests.
+name: rspec-conventions
+description: "Conventions d'écriture des specs RSpec HubEE (tous types) : descriptions en anglais, un cas = un it = N expects, assertions positives, let/subject, expect plutôt que allow, hash complet vs hash_including, factories FactoryBot, matrices d'état, form specs sans type:model, dates relatives, helpers, + spécificités request/system (have_http_status, Capybara, frontière gem HTTP). À utiliser pour écrire ou relire n'importe quel spec. Pour décider QUOI/OÙ tester et la couverture, voir la skill test-strategy. Le cycle RED-GREEN-REFACTOR est délégué à superpowers:test-driven-development."
 globs:
   - "spec/**/*.rb"
   - "spec/factories/**/*.rb"
   - "spec/support/**/*.rb"
 ---
 
-> **Complète `superpowers:test-driven-development`** : son cycle RED-GREEN-REFACTOR s'applique tel quel ; cette skill ajoute uniquement les conventions de tests HubEE décrites ci-dessous.
+> **Complète `superpowers:test-driven-development`** : son cycle RED-GREEN-REFACTOR s'applique tel quel ; cette skill ajoute uniquement les conventions d'écriture de specs HubEE ci-dessous.
+>
+> Pour décider **quoi/où** tester et la couverture (ce qu'il ne faut pas tester, niveaux de frontière gem, organizer/step, objectif SimpleCov) → skill `test-strategy`.
 
-# TDD & conventions de tests HubEE
+# Conventions d'écriture RSpec HubEE
 
 ## Langue : descriptions de tests en anglais
 
@@ -56,63 +58,6 @@ RSpec.describe Organization, type: :model do
 end
 ```
 
-### Specs de requête
-
-**Règle fondamentale : 1 cas = 1 `it` = N expects.** Un scénario ne se découpe pas en plusieurs `it`. Chaque `it` doit systématiquement inclure `have_http_status` et au moins une assertion sur le body.
-
-Toujours asserter positivement sur le contenu du body pour exprimer ce que la réponse contient. Une assertion négative peut venir en complément, mais ne suffit pas seule. Exception : si le body ne révèle absolument rien de significatif (ex: `<turbo-frame>` vide sans contenu métier), une assertion négative seule est tolérée, mais un commentaire doit remplacer l'assertion positive manquante pour expliquer l'exception au relecteur.
-
-```ruby
-# ✅ Assertion positive + négative en complément
-it "renders the search hint and no results table" do
-  get "/users", params: search_params
-
-  expect(response).to have_http_status(:success)
-  expect(response.body).to include("Renseignez au moins un critère")
-  expect(response.body).not_to include("fr-table")
-end
-
-# ✅ Exception documentée : body sans contenu significatif
-it "returns an empty list and does not call hub-api" do
-  get "/organizations/autocomplete", params: {q: "abc"}
-
-  expect(response).to have_http_status(:success)
-  # Le body est un <turbo-frame> vide — aucun contenu métier à asserter positivement.
-  expect(response.body).not_to include("<li")
-end
-```
-
-**Préférer le hash complet à `hash_including`** — asserter le hash exact rend le contrat explicite et détecte les paramètres inattendus. `hash_including` est toléré dans des cas précis (hash très verbeux, paramètres variables comme un timestamp), mais doit être accompagné d'un commentaire qui justifie l'exception.
-
-```ruby
-# ✅ Hash complet — contrat explicite
-expect(Keycloak::UserClient).to have_received(:search)
-  .with(siret: "22770001000019", searched: "Dup", offset: 0, per_page: 10)
-
-# ✅ Exception justifiée
-expect(Keycloak::UserClient).to have_received(:search)
-  .with(hash_including(siret: "22770001000019"))
-  # offset et per_page testés séparément dans le contexte pagination
-
-# ❌ hash_including sans raison — masque ce qui est réellement envoyé
-expect(Keycloak::UserClient).to have_received(:search)
-  .with(hash_including(siret: "22770001000019", searched: "Dup"))
-```
-
-**Assertions HTML : `Capybara.string` + matchers sémantiques, pas regex/string brute.** Préférer `Capybara.string(response.body)` + `have_field` / `have_checked_field` / `have_unchecked_field` / `have_link` / `have_css` à `match(/regex/)`, `include("<html…>")` ou `Nokogiri + at_css(...)["attr"]` : le matcher exprime l'**intention** et échoue lisiblement.
-
-```ruby
-# ❌ regex/string fragile                    # ✅ matcher sémantique
-match(/name="user\[active\]".*checked/)   →  have_checked_field("user[active]")
-include('<a href="/users/42">')           →  have_link("Voir", href: "/users/42")
-Nokogiri::HTML(b).at_css("#x")["value"]   →  have_field("user[email]", with: "a@b.fr")
-```
-
-Trois nuances :
-- **Capybara pour l'intention, Nokogiri/CSS pour l'ordre/structure DOM.** Nokogiri reste légitime quand on teste une *position* (`thead th:first-child`, ordre des colonnes), pas une intention métier. Ne pas sur-appliquer Capybara.
-- **`visible: :all` inutile en request spec, requis en system spec.** `Capybara.string` analyse du HTML statique sans CSS → les inputs masqués DSFR ne sont pas « hidden ». En system spec (vrai navigateur + CSS DSFR), ils le sont → `visible: :all` requis.
-- **`have_unchecked_field` > `not_to match(/checked/)`** : le matcher exige présence **et** état. L'ancienne regex passait à vide si l'élément était absent (faux positif).
-
 ### Factories
 
 ```ruby
@@ -137,6 +82,16 @@ end
 ```
 
 ## Conventions de test HubEE
+
+### Un cas = un `it` = N expects
+
+Un scénario ne se découpe pas en plusieurs `it` : **un cas = un `it`** contenant autant d'`expect` que nécessaire. Fractionner artificiellement un même cas en plusieurs `it` (un `expect` chacun) fragmente la lecture et multiplie le setup.
+
+> Déclinaison request spec (chaque `it` inclut `have_http_status` + une assertion sur le body) : voir § « Request & system specs ».
+
+### Assertions : asserter positivement sur ce que produit le code
+
+Asserter d'abord **positivement** sur ce que le code produit (valeur retournée, enregistrement créé, contenu rendu). Une assertion négative (`not_to`) vient en **complément**, jamais seule : « ça ne contient pas X » ne dit pas ce que la sortie contient réellement. Exception : si la sortie ne révèle rien de significatif à asserter positivement, une assertion négative seule est tolérée, mais un commentaire doit expliquer l'exception au relecteur.
 
 ### Pas de date absolue future codée en dur
 
@@ -274,6 +229,25 @@ def expect_readonly_connection
 end
 ```
 
+### Hash complet plutôt que `hash_including`
+
+Quand on asserte les arguments d'un appel mocké (`have_received(...).with(...)`), **préférer le hash complet** : le contrat est explicite et tout paramètre inattendu est détecté. `hash_including` est toléré dans des cas précis (hash très verbeux, paramètres variables comme un timestamp), mais accompagné d'un commentaire qui justifie l'exception. Vaut partout où l'on espionne des arguments (services, interactors, clients d'API, request specs) — pas seulement en request spec.
+
+```ruby
+# ✅ Hash complet — contrat explicite
+expect(Keycloak::UserClient).to have_received(:search)
+  .with(siret: "22770001000019", searched: "Dup", offset: 0, per_page: 10)
+
+# ✅ Exception justifiée
+expect(Keycloak::UserClient).to have_received(:search)
+  .with(hash_including(siret: "22770001000019"))
+  # offset et per_page testés séparément dans le contexte pagination
+
+# ❌ hash_including sans raison — masque ce qui est réellement envoyé
+expect(Keycloak::UserClient).to have_received(:search)
+  .with(hash_including(siret: "22770001000019", searched: "Dup"))
+```
+
 ### Helpers de test : pas de params inutilisés
 
 Ne jamais ajouter `**extra` ou des paramètres optionnels à un helper de test s'ils ne sont pas utilisés.
@@ -381,7 +355,7 @@ end
 
 > La section « `expect` plutôt que `allow` » impose déjà d'armer les expectations **avant** de déclencher l'action dans le `it` : un `before` qui appellerait le sujet s'exécuterait trop tôt. Déclencher inline est donc à la fois la règle `let` et la contrainte des message expectations.
 
-Le pattern de frontière gem (section ci-dessous) illustre déjà la règle : `let(:fake_client) { FakeClient.new }` est une **valeur** ; les actions (`fake_client.add_subscription(...)`) vivent dans le `before`.
+La spec de frontière gem (§ « Request & system specs ») illustre déjà la règle : `let(:fake_client) { FakeClient.new }` est une **valeur** ; les actions (`fake_client.add_subscription(...)`) vivent dans le `before`.
 
 ### Rationalisations à rejeter
 
@@ -401,45 +375,53 @@ Le pattern de frontière gem (section ci-dessous) illustre déjà la règle : `l
 - Un `let` défini au-dessus de tests qui ne l'utilisent pas
 - Un appel qui crée/envoie/charge enveloppé dans un `let`
 
-## Commandes
+## Request & system specs
 
-```bash
-bundle exec rspec                                      # tout
-bundle exec rspec spec/models/subscription_spec.rb     # un fichier
-bundle exec rspec spec/models/subscription_spec.rb:15  # une ligne
-bundle exec rspec --only-failures                      # seulement les échecs
-COVERAGE=true bundle exec rspec                         # avec coverage
-```
+Spécificités des specs qui exercent une requête HTTP et/ou rendent du HTML. Elles s'ajoutent aux conventions transverses ci-dessus.
 
-## Objectif de couverture
+### Chaque `it` : `have_http_status` + assertion sur le body
 
-Minimum **90 % de couverture de lignes et de branches**, imposé par SimpleCov (`spec/spec_helper.rb`). Tourne automatiquement en CI et à la demande en local :
-
-```bash
-COVERAGE=true bundle exec rspec   # génère coverage/index.html
-```
-
-Configuration SimpleCov pour activer les deux métriques :
+Déclinaison de « un cas = un `it` » et « asserter positivement » : chaque `it` de request spec inclut systématiquement `have_http_status` et au moins une assertion **positive** sur le body.
 
 ```ruby
-# spec/spec_helper.rb
-SimpleCov.start "rails" do
-  enable_coverage :branch
-  minimum_coverage line: 90, branch: 90
+# ✅ Assertion positive + négative en complément
+it "renders the search hint and no results table" do
+  get "/users", params: search_params
+
+  expect(response).to have_http_status(:success)
+  expect(response.body).to include("Renseignez au moins un critère")
+  expect(response.body).not_to include("fr-table")
+end
+
+# ✅ Exception documentée : body sans contenu significatif
+it "returns an empty list and does not call hub-api" do
+  get "/organizations/autocomplete", params: {q: "abc"}
+
+  expect(response).to have_http_status(:success)
+  # Le body est un <turbo-frame> vide — aucun contenu métier à asserter positivement.
+  expect(response.body).not_to include("<li")
 end
 ```
 
-SimpleCov mesure la couverture de branches depuis la version 0.18 — chaque `if/unless/case/&&/||` compte comme une branche. Une couverture de lignes à 100 % ne garantit pas la couverture de branches.
+### Assertions HTML : `Capybara.string` + matchers sémantiques
 
-## Tests de frontière gem
+**Pas de regex/string brute.** Préférer `Capybara.string(response.body)` + `have_field` / `have_checked_field` / `have_unchecked_field` / `have_link` / `have_css` à `match(/regex/)`, `include("<html…>")` ou `Nokogiri + at_css(...)["attr"]` : le matcher exprime l'**intention** et échoue lisiblement.
 
-Quand l'app consomme une gem externe (ex: `hub-api-v1`), distinguer trois niveaux :
+```ruby
+# ❌ regex/string fragile                    # ✅ matcher sémantique
+match(/name="user\[active\]".*checked/)   →  have_checked_field("user[active]")
+include('<a href="/users/42">')           →  have_link("Voir", href: "/users/42")
+Nokogiri::HTML(b).at_css("#x")["value"]   →  have_field("user[email]", with: "a@b.fr")
+```
 
-| Niveau | Quand | Pattern |
-|---|---|---|
-| Erreurs réseau | 401, 403, 500 | `allow(GemClass).to receive(:method).and_raise(...)` — seul cas légitime de mock sur la classe gem |
-| Contrat form→gem | À chaque `to_search_params` | Spec unitaire sur le hash exact retourné (clés ET valeurs) |
-| Frontière HTTP | Tout chemin de recherche/écriture | Injecter `FakeClient`, espionner avec `and_call_original`, asserter sur les params HTTP |
+Trois nuances :
+- **Capybara pour l'intention, Nokogiri/CSS pour l'ordre/structure DOM.** Nokogiri reste légitime quand on teste une *position* (`thead th:first-child`, ordre des colonnes), pas une intention métier. Ne pas sur-appliquer Capybara.
+- **`visible: :all` inutile en request spec, requis en system spec.** `Capybara.string` analyse du HTML statique sans CSS → les inputs masqués DSFR ne sont pas « hidden ». En system spec (vrai navigateur + CSS DSFR), ils le sont → `visible: :all` requis.
+- **`have_unchecked_field` > `not_to match(/checked/)`** : le matcher exige présence **et** état. L'ancienne regex passait à vide si l'élément était absent (faux positif).
+
+### Frontière gem : spec HTTP
+
+> Le choix **de quel niveau teste quoi** (erreurs réseau / contrat form→gem / frontière HTTP) relève de la stratégie : voir la skill `test-strategy` § « Niveaux de test d'une frontière gem ». Cette section couvre l'**implémentation** de la spec de frontière HTTP.
 
 La spec de frontière se rédige **avant le code** (TDD). Elle doit passer au rouge avec le code cassé, au vert après le fix.
 
@@ -457,55 +439,19 @@ it "transmet companyName à l'API" do
 
   expect(fake_client).to have_received(:get_with_headers).with(
     HubApiV1::Subscription::PATH,
-    { companyName: "mairie" }   # hash complet, pas hash_including (voir règle ci-dessus)
+    { companyName: "mairie" }   # hash complet, pas hash_including (voir § « Hash complet »)
   )
 end
 ```
 
-**Règle sur `hash_including`** : ne jamais le substituer au hash complet en spec de frontière — il masquerait les paramètres inattendus transmis à l'API. Justifier son usage avec un commentaire si l'exception est vraiment nécessaire.
+**Règle sur `hash_including`** : ne jamais le substituer au hash complet en spec de frontière — il masquerait les paramètres inattendus transmis à l'API.
 
-## Organizer vs steps : répartition des cas de test
+## Commandes
 
-| Niveau      | Quoi tester                                                        |
-|-------------|---------------------------------------------------------------------|
-| Organizer   | Happy path de bout en bout + comportement de composition (ex : le context d'une étape alimente l'étape suivante) |
-| Step        | Tous les chemins d'erreur propres à l'étape + comportement atomique |
-
-Ne pas dupliquer les cas d'erreur à la fois au niveau step et organizer : les tester au niveau step suffit. L'organizer teste que les étapes sont bien branchées, pas ce que chaque étape fait en isolation.
-
-## Ce qu'il ne faut PAS tester
-
-- Les internes de Rails (faire confiance au framework)
-- Les gems tierces (faire confiance à leur suite de tests)
-- Les délégations simples (`delegate :name, to: :organization`)
-- Les méthodes privées directement — tester via l'interface publique
-- Les chemins inatteignables depuis les appelants réels
-
-### Fausse couverture : tester un chemin mort
-
-Un test peut passer sans jamais toucher le code qu'il prétend couvrir, donnant une fausse impression
-de robustesse. Toujours vérifier que le cas testé peut réellement atteindre le `rescue` ou la
-branche défensive depuis les appelants réels.
-
-Exemple avec `Time.zone.parse` :
-
-| Entrée testée | Ce qui se passe réellement |
-|---|---|
-| `"not-a-date"`, `""` | retourne `nil` nativement — le `rescue` n'est jamais touché |
-| `nil` | lève `TypeError` — mais si tous les appelants font `&&`, chemin inatteignable |
-| `"2024-13-01"` | lève `ArgumentError` — le seul vrai risque depuis une API externe |
-
-```ruby
-# ❌ teste un chemin mort (nil filtré par && chez tous les appelants)
-it "returns nil for nil" do
-  expect(described_class.safe_parse_time(nil)).to be_nil
-end
-
-# ✅ teste la vraie exception possible
-it "returns nil for an out-of-range date string" do
-  expect(described_class.safe_parse_time("2024-13-01")).to be_nil
-end
+```bash
+bundle exec rspec                                      # tout
+bundle exec rspec spec/models/subscription_spec.rb     # un fichier
+bundle exec rspec spec/models/subscription_spec.rb:15  # une ligne
+bundle exec rspec --only-failures                      # seulement les échecs
+COVERAGE=true bundle exec rspec                         # avec coverage
 ```
-
-Avant d'écrire un cas de test pour un `rescue`, se demander : **cette exception peut-elle réellement
-être levée depuis les appelants réels, compte tenu des gardes existants ?**
