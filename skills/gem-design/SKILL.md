@@ -14,7 +14,7 @@ Le `FakeClient` n'est pas un ajout tardif : il se conçoit en même temps que le
 **Contrat obligatoire** :
 - Implémenter tous les filtres supportés par les vraies méthodes (`companyName`, `company_register`, `type`, `name`…) avec la même sémantique de filtrage
 - Exposer des méthodes de setup fluides : `add_subscription`, `add_organization`, `set_processes`
-- Permettre le spy sans effet de bord : `allow(fake_client).to receive(:get_with_headers).and_call_original` doit fonctionner
+- Permettre le spy sans effet de bord : `expect(fake_client).to receive(:get_with_headers).and_call_original` doit fonctionner
 
 Sans ça, les specs de frontière dans l'app consommatrice ne peuvent vérifier que les params transmis, pas le comportement filtré — angle mort garanti.
 

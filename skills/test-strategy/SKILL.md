@@ -35,7 +35,7 @@ Quand l'app consomme une gem externe (ex: `hub-api-v1`), distinguer trois niveau
 
 | Niveau | Quand | Pattern |
 |---|---|---|
-| Erreurs réseau | 401, 403, 500 | `allow(GemClass).to receive(:method).and_raise(...)` — seul cas légitime de mock sur la classe gem |
+| Erreurs réseau | 401, 403, 500 | `expect(GemClass).to receive(:method).and_raise(...)` — seul cas légitime de mock sur la classe gem |
 | Contrat form→gem | À chaque `to_search_params` | Spec unitaire sur le hash exact retourné (clés ET valeurs) |
 | Frontière HTTP | Tout chemin de recherche/écriture | Injecter `FakeClient`, espionner avec `and_call_original`, asserter sur les params HTTP |
 

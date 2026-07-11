@@ -511,7 +511,7 @@ describe MonService::Organization do
   let(:client) { instance_double(MonService::Client) }
 
   it "raises NotFoundError when empty" do
-    allow(client).to receive(:get).and_return([])
+    expect(client).to receive(:get).and_return([])
 
     expect {
       described_class.find(identifier: "123", client:)

@@ -426,19 +426,16 @@ La spec de frontière se rédige **avant le code** (TDD). Elle doit passer au ro
 ```ruby
 let(:fake_client) { HubApiV1::Testing::FakeClient.new }
 
-before do
-  fake_client.add_subscription(...)
-  allow(HubApiV1::Client).to receive(:new).and_return(fake_client)
-  allow(fake_client).to receive(:get_with_headers).and_call_original
-end
+before { fake_client.add_subscription(...) }
 
 it "transmet companyName à l'API" do
-  get "/subscriptions", params: { company_name: "mairie" }
-
-  expect(fake_client).to have_received(:get_with_headers).with(
+  expect(HubApiV1::Client).to receive(:new).and_return(fake_client)
+  expect(fake_client).to receive(:get_with_headers).with(
     HubApiV1::Subscription::PATH,
     { companyName: "mairie" }   # hash complet, pas hash_including (voir § « Hash complet »)
-  )
+  ).and_call_original
+
+  get "/subscriptions", params: { company_name: "mairie" }
 end
 ```
 
