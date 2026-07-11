@@ -109,7 +109,9 @@ Refs: #228
 
 **Pas de `Co-Authored-By: Claude`** — règle HubEE absolue (cf. règle `git-workflow`).
 
-### 5. Présenter le message au dev pour validation
+### 5. Présenter le message **avec** la commande copier-collable, en un seul tour
+
+Présenter la proposition (récap fichiers + CI + message) **et** fournir directement la commande prête à coller de l'étape 6 dans le **même** message. **Pas de gate « tu valides ? »** : c'est le dev qui choisit — ou non — de coller la commande dans son terminal ; ce choix *est* la validation. Ne jamais s'arrêter pour attendre un « oui » avant de livrer la commande.
 
 Format de présentation :
 
@@ -140,10 +142,10 @@ manuels.
 Refs: #228
 ```
 
-**Tu valides ?**
+_(La commande copier-collable de l'étape 6 suit immédiatement, dans le même message.)_
 ```
 
-Attendre validation explicite du dev avant l'étape suivante.
+Si le dev demande ensuite un ajustement (message, découpage, fichiers), reprendre à l'étape 4 et re-livrer message + commande. Sinon, il colle la commande quand il veut — ou pas.
 
 ### 6. Écrire le message dans un fichier + commande mono-ligne
 
@@ -212,10 +214,10 @@ feat(subscriptions): permettre la création par lot
 [...body...]
 ```
 
-**Tu valides ce découpage ?**
+_(Les commandes des deux commits, dans l'ordre, suivent immédiatement.)_
 ```
 
-Le dev valide le découpage avant qu'on enchaîne sur 2 cycles `bin/ci` + passation copier-collable.
+Fournir directement les deux commandes copier-collables (une par commit, à coller dans l'ordre), sans attendre de validation du découpage. Si le dev préfère un autre découpage, il le dit et on re-livre.
 
 ## Erreurs courantes à signaler
 
@@ -227,6 +229,7 @@ Le dev valide le découpage avant qu'on enchaîne sur 2 cycles `bin/ci` + passat
 ## Anti-patterns Claude doit éviter
 
 - ❌ Lancer `git commit` directement (la médiation humaine impose la passation par fichier)
+- ❌ S'arrêter sur un « tu valides ? » et attendre un « oui » avant de livrer la commande — la commande accompagne toujours la proposition ; c'est le dev qui décide de la coller ou non
 - ❌ Donner une commande `git commit -m "..."` multi-ligne au dev — les retours à la ligne se cassent au collage. Utiliser `git commit -F .commit-msg.tmp` mono-ligne
 - ❌ Mettre `Co-Authored-By: Claude` dans le message
 - ❌ Bypass `bin/ci` sans demande explicite du dev

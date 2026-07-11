@@ -27,3 +27,5 @@ Table de décision *orientée écriture* (« quel pattern écrire »). Compléme
 **Le seuil central est la complexité, pas le nombre d'étapes.** Tant qu'on reste au niveau d'un scaffold (CRUD direct, une ou deux lignes triviales), la logique reste dans le controller. Dès qu'on le dépasse, on bascule vers le pattern dédié sans attendre d'avoir « assez » de matière pour le justifier — en particulier, on passe en organizer + interactor dès la première étape métier non triviale, pas de service object PORO ad-hoc.
 
 **Style de code transverse.** Une fois le pattern choisi, les conventions d'écriture communes à tous (nommage, résolution des constantes, error handling, fonctions pures, chaînage, imbrication de blocks, temps, linting) sont dans la skill `ruby-style`.
+
+**Workflow de dev (TDD).** Quel que soit le pattern, on l'implémente en TDD : le cycle RED-GREEN-REFACTOR (un test qui échoue d'abord, puis le code) est piloté par `superpowers:test-driven-development`. Les conventions HubEE d'écriture des specs vivent dans `rspec-conventions`, la stratégie de couverture (quoi/où tester) dans `test-strategy`.
