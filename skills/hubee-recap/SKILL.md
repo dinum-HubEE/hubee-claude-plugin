@@ -82,6 +82,7 @@ Table HubEE actuelle (à enrichir au fil de l'eau) :
 | GitHub login | Nom canonique (GitLab) |
 |---|---|
 | `damienlethiec` | Damien Le Thiec |
+| `julienanne` | Julien Anne |
 
 Algorithme :
 1. Pour chaque MR/PR GitHub, regarder le login (sans `@`).
