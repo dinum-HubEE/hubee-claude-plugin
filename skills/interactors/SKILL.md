@@ -95,6 +95,16 @@ end
 
 ❌ Recopier une intention quasi identique sous deux namespaces d'action (`Subscriptions::Create::ResolveOrganization` **et** `Subscriptions::Update::ResolveOrganization`) : c'est le signal d'un `Shared` à extraire.
 
+**Discriminant** : comparer les *intentions*, pas les corps de méthode. Deux étapes peuvent produire un appel identique sans être la même étape — « résoudre X » (le résultat alimente la suite) et « vérifier que X existe » (le résultat est jeté) sont deux intentions distinctes, et les mutualiser ferait porter à l'une une responsabilité que son appelant n'a pas. Si les deux étapes ne peuvent pas partager le même nom par intention, il n'y a pas de `Shared` à extraire.
+
+```ruby
+# Même appel, mêmes rescue, mêmes symboles d'erreur — et pourtant deux étapes distinctes.
+Users::Create::ResolveOrganization        # pose context.organization, consommé par l'étape suivante
+Users::Update::EnsureOrganizationExists   # vérifie l'existence, jette le résultat
+```
+
+Quand deux étapes se ressemblent à ce point sans être mutualisables, documenter la distinction dans chacune : c'est ce commentaire qui empêche une revue ou un audit ultérieur de reproposer l'extraction.
+
 ### Factoriser de la logique, pas une étape entière
 
 Partager une **étape complète** passe par un `Shared::` (ci-dessus) — c'est l'idiome de la gem, à préférer par défaut. Quand on veut seulement mutualiser un **morceau de logique métier non trivial** entre interactors, sans en faire une étape à part entière, on le factorise dans un **concern d'interactor**, pas dans un service PORO : toute la logique complexe transite par des interactors (voir skill `principles`), donc le partage aussi.
@@ -313,7 +323,7 @@ end
 **Règles** :
 - ✅ Nommage déduit du controller, **namespace inclus** : organizer `[Namespace::]<Ressource>::<Action>` = `[Namespace::]<Ressource>Controller#<action>`, noms d'étapes par intention
 - ✅ Arborescence : `app/interactors/[<namespace>/]<ressource>/<action>.rb` (organizer) + `.../<action>/<étape>.rb` (steps) — interactor toujours namespacé sous son organizer
-- ✅ Étape partagée → sous-namespace `shared` remonté au premier niveau couvrant tous les usages (ressource → namespace → global `HubEE`, racine nue seulement sans namespace de premier niveau), pas de duplication d'une même intention
+- ✅ Étape partagée → sous-namespace `shared` remonté au premier niveau couvrant tous les usages (ressource → namespace → global `HubEE`, racine nue seulement sans namespace de premier niveau), pas de duplication d'une même intention — le discriminant est l'identité d'**intention**, pas la ressemblance des corps de méthode
 - ✅ Mutualiser un morceau de logique (pas une étape entière) → concern d'interactor dans `app/interactors/concerns/`, pas un service PORO ; le `context.fail!` reste dans l'étape, jamais dans le concern
 - ✅ Une fois la bascule décidée (par `choosing-a-pattern`), toujours un organizer **et** un interactor, même pour un seul interactor
 - ✅ Étapes ordonnées par irréversibilité croissante : locales (rollbackables) d'abord, calls externes rejouables ensuite, l'éventuel non-rejouable en dernier — jamais de rollback compensatoire vers une API externe, le rejeu de l'organizer est la récupération

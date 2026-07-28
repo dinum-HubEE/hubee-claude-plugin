@@ -152,6 +152,39 @@ Préférer les méthodes du form object aux variables d'instance brutes pour exp
 <% end %>
 ```
 
+### Variante — quand le form object ne peut pas connaître l'état
+
+Le form object ne connaît que la saisie. Dès qu'un état dépend d'une source qu'il ignore — appel API en échec, autorisation refusée, cache froid — aucune de ses méthodes ne peut l'exposer, et une collection à `nil` finit par recouvrir **deux** états distincts (« saisie invalide », connue du form, et « l'appel externe a échoué », connue du seul controller). C'est le cas dès qu'un écran de recherche interroge un service externe, donc la règle ci-dessus ne suffit pas telle quelle.
+
+Dans ce cas, c'est le **controller** qui résout un **état nommé unique**, consommé par un `case` dans la vue — la vue ne déduit plus rien :
+
+```ruby
+def index
+  @search_form = OrganizationSearchForm.new(params.permit(:siret, :type, :name))
+  @search_state = resolve_search_state
+end
+
+private
+
+def resolve_search_state
+  return :not_requested unless @search_form.search_requested?
+  return :invalid unless @search_form.valid?
+
+  search_organizations   # → :empty | :results, ou :failed depuis son rescue
+end
+```
+
+```erb
+<%# :invalid → messages rendus dans le formulaire ; :failed → alerte portée par le flash %>
+<% case @search_state %>
+<% when :not_requested %> … <% when :empty %> … <% when :results %> … <% end %>
+```
+
+Deux points de méthode :
+
+- **Un seul état à la fois.** `resolve_search_state` retourne un symbole, pas une combinaison — c'est ce qui remplace la cascade de `if` qui interprétait `nil`.
+- **Les branches sans rendu propre n'apparaissent pas dans le `case`.** `:invalid` est rendu par les messages d'erreur du formulaire, `:failed` par le flash : les lister dans le `case` créerait des branches vides. Un **commentaire au-dessus du `case`** dit où elles sont rendues, sans quoi le lecteur croit à un oubli.
+
 ## Hotwire integration
 
 Interactive JavaScript uses Hotwire (Turbo + Stimulus). For deep Hotwire patterns (Turbo Frames/Streams choreography, complex Stimulus controllers), see the `hotwire` skill. Here we focus on integration with DSFR ERB views.

@@ -178,7 +178,15 @@ Toujours **une seule ligne** sur le host, peu importe le nombre de fichiers. Pas
 
 Le `&&` enchaîne stage → commit → cleanup ; si une étape plante, les suivantes ne tournent pas (les fichiers `.tmp` restent → permet de débugger sans réécrire le message).
 
-**Multi-commits dans la même session** : nommer les fichiers `.commit-msg-1.tmp`, `.commit-msg-2.tmp`, etc., et donner les commandes l'une après l'autre. Le dev les exécute en séquence.
+**Étape préalable intégrée, jamais dans un bloc séparé.** Si la séquence exige un préalable (`git reset` parce que des `git mv` sont déjà indexés, `git fetch`, `bundle install`), il s'enchaîne par `&&` dans la **même** commande — cf. « Une commande, une étape sautable en moins » (Doctrine de handoff, README). Un bloc `git reset` distinct peut être sauté sans que rien ne le signale : les fichiers déjà indexés partent alors dans le **premier** commit et cassent tous les suivants, chacun paraissant réussir.
+
+**Multi-commits dans la même session** : nommer les fichiers `.commit-files-1.tmp` / `.commit-msg-1.tmp`, `.commit-files-2.tmp` / `.commit-msg-2.tmp`, etc. Au-delà de ~3 commits, ne pas livrer un bloc par commit — livrer **une commande unique** qui boucle sur les fichiers numérotés :
+
+```bash
+( for i in $(seq 1 10); do git add --pathspec-from-file=.commit-files-$i.tmp && git commit -F .commit-msg-$i.tmp || exit 1; done ) && rm .commit-files-*.tmp .commit-msg-*.tmp
+```
+
+La sous-shell `( … )` fait qu'un échec interrompt la boucle **sans** déclencher le `rm` final : les `.tmp` restent en place pour diagnostiquer et reprendre au bon indice.
 
 Puis informer le dev :
 
@@ -217,7 +225,7 @@ feat(subscriptions): permettre la création par lot
 _(Les commandes des deux commits, dans l'ordre, suivent immédiatement.)_
 ```
 
-Fournir directement les deux commandes copier-collables (une par commit, à coller dans l'ordre), sans attendre de validation du découpage. Si le dev préfère un autre découpage, il le dit et on re-livre.
+Fournir directement les commandes copier-collables sans attendre de validation du découpage — un bloc par commit jusqu'à ~3, une commande unique qui boucle au-delà (voir § précédent), tout préalable enchaîné par `&&` dans le premier bloc. Si le dev préfère un autre découpage, il le dit et on re-livre.
 
 ## Erreurs courantes à signaler
 
@@ -231,6 +239,7 @@ Fournir directement les deux commandes copier-collables (une par commit, à coll
 - ❌ Lancer `git commit` directement (la médiation humaine impose la passation par fichier)
 - ❌ S'arrêter sur un « tu valides ? » et attendre un « oui » avant de livrer la commande — la commande accompagne toujours la proposition ; c'est le dev qui décide de la coller ou non
 - ❌ Donner une commande `git commit -m "..."` multi-ligne au dev — les retours à la ligne se cassent au collage. Utiliser `git commit -F .commit-msg.tmp` mono-ligne
+- ❌ Livrer une étape préalable (`git reset`, `git fetch`) dans un bloc séparé — elle s'enchaîne par `&&` dans la première commande, sinon elle peut être sautée en silence et tout ce qui suit tourne sur un état non prévu
 - ❌ Mettre `Co-Authored-By: Claude` dans le message
 - ❌ Bypass `bin/ci` sans demande explicite du dev
 - ❌ Proposer un message en anglais

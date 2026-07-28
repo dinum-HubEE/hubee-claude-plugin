@@ -85,7 +85,7 @@ end
 
 Un scénario ne se découpe pas en plusieurs `it` : **un cas = un `it`** contenant autant d'`expect` que nécessaire. Fractionner artificiellement un même cas en plusieurs `it` (un `expect` chacun) fragmente la lecture et multiplie le setup.
 
-> Déclinaison request spec (chaque `it` inclut `have_http_status` + une assertion sur le body) : voir § « Request & system specs ».
+> Déclinaison request spec (chaque `it` qui asserte sur le body inclut `have_http_status` + une assertion positive, les `it` sans rendu en sont exemptés) : voir § « Request & system specs ».
 
 ### Assertions : asserter positivement sur ce que produit le code
 
@@ -185,13 +185,13 @@ describe "name normalization" do
 end
 ```
 
-### `expect` plutôt que `allow` — sans exception
+### `expect` plutôt que `allow`
 
-`allow` autorise un appel sans garantir qu'il a lieu. Si le stub est important, c'est que l'appel a lieu — donc `expect`. La règle est absolue :
+`allow` autorise un appel sans garantir qu'il a lieu. Si le stub est important, c'est que l'appel a lieu — donc `expect` :
 
 - `expect(...).to receive(...)` → l'appel doit avoir lieu
 - `expect(...).not_to receive(...)` → l'appel est interdit
-- `allow` → jamais
+- `allow` → jamais, **sauf** dans un helper de `spec/support/` inclus globalement (voir plus bas)
 
 ```ruby
 # ❌ allow : le lecteur ne sait pas si l'appel a réellement lieu
@@ -226,6 +226,27 @@ def expect_readonly_connection
   expect(HubDb::ReadonlyRecord).to receive(:with_connection) { |&block| block.call(conn) }
 end
 ```
+
+**Exception — helpers de `spec/support/` inclus globalement.** Un helper monté via `RSpec.configure { |c| c.include KeycloakStubs }` pose le décor de dizaines de specs, dont toutes n'exercent pas le chemin stubbé. En `expect`, il rendrait l'appel obligatoire et ferait échouer les specs qui ne l'empruntent légitimement pas (un formulaire re-rendu en erreur ne joint jamais Keycloak). Ces helpers-là peuvent utiliser `allow`, à trois conditions :
+
+1. le helper vit dans `spec/support/` et est inclus globalement — un `allow` dans un `before` **local** reste proscrit ;
+2. il porte un **commentaire** expliquant l'exception ;
+3. les specs qui *vérifient* l'appel arment leur propre `expect(...).to receive(...)` dans le `it` — le décor global ne dispense jamais de l'expectation quand l'appel **est** le sujet du test.
+
+```ruby
+# spec/support/keycloak_stubs.rb
+module KeycloakStubs
+  # `allow` et non `expect` : ce helper est inclus globalement (voir spec_helper) et
+  # pose le décor de specs qui n'atteignent pas toutes Keycloak — un formulaire
+  # re-rendu en erreur, par exemple. Une spec qui *vérifie* l'appel arme son propre
+  # expect(...).to receive(...) dans le `it`.
+  def stub_keycloak_search(users: [])
+    allow(Keycloak::UserClient).to receive(:search).and_return(users)
+  end
+end
+```
+
+Cible à tenir : **zéro `allow` hors de `spec/support/`**, et chacun de ceux qui restent commenté.
 
 ### Hash complet plutôt que `hash_including`
 
@@ -377,9 +398,24 @@ La spec de frontière gem (§ « Request & system specs ») illustre déjà la r
 
 Spécificités des specs qui exercent une requête HTTP et/ou rendent du HTML. Elles s'ajoutent aux conventions transverses ci-dessus.
 
-### Chaque `it` : `have_http_status` + assertion sur le body
+### Chaque `it` qui asserte sur le body : `have_http_status` + assertion positive
 
-Déclinaison de « un cas = un `it` » et « asserter positivement » : chaque `it` de request spec inclut systématiquement `have_http_status` et au moins une assertion **positive** sur le body.
+Déclinaison de « un cas = un `it` » et « asserter positivement » : chaque `it` de request spec **qui asserte sur le body** inclut systématiquement `have_http_status` et au moins une assertion **positive** sur ce body.
+
+**Exemption — les `it` qui n'exercent aucun rendu.** Une spec qui teste une redirection, un en-tête, un log ou un appel sortant n'a pas de body à asserter : l'assertion utile est `redirect_to`, `have_header` ou l'expectation de message, et `have_http_status(:redirect)` n'ajoute rien. Ces fichiers (specs de session, de CSP, d'authentification…) sont exemptés — **documenter l'exception en tête de fichier** pour qu'une revue ne la re-signale pas à chaque passage.
+
+```ruby
+# spec/requests/sessions_spec.rb
+# Exemption « have_http_status » (skill rspec-conventions) : ce fichier n'exerce que
+# des redirections OIDC — aucun rendu, donc aucune assertion sur le body.
+RSpec.describe "Sessions" do
+  it "redirects to the sign-in page when signed out" do
+    delete "/sign_out"
+
+    expect(response).to redirect_to(new_session_path)
+  end
+end
+```
 
 ```ruby
 # ✅ Assertion positive + négative en complément
@@ -432,7 +468,9 @@ it "transmet companyName à l'API" do
   expect(HubApiV1::Client).to receive(:new).and_return(fake_client)
   expect(fake_client).to receive(:get_with_headers).with(
     HubApiV1::Subscription::PATH,
-    { companyName: "mairie" }   # hash complet, pas hash_including (voir § « Hash complet »)
+    # Hash complet, pas hash_including (voir § « Hash complet »). Les clés de
+    # pagination sont injectées par le client de la gem, pas par notre code.
+    { maxResult: 20, companyName: "mairie", offSet: 0 }
   ).and_call_original
 
   get "/subscriptions", params: { company_name: "mairie" }
@@ -440,6 +478,10 @@ end
 ```
 
 **Règle sur `hash_including`** : ne jamais le substituer au hash complet en spec de frontière — il masquerait les paramètres inattendus transmis à l'API.
+
+**Le hash complet inclut ce que le client injecte.** Une recherche paginée part avec ses clés de pagination (`maxResult`, `offSet`…) même si notre code ne les passe pas : elles viennent du client de la gem. Un hash qui les omet fait échouer l'assertion, et la tentation est alors de rebasculer sur `hash_including` — exactement ce que la règle interdit.
+
+**Technique de la sonde** : si vous ne connaissez pas le hash réellement transmis, écrivez l'assertion avec ce que vous croyez savoir et **laissez-la échouer une fois** — le message de RSpec (`received :get_with_headers with unexpected arguments`) affiche le hash réel, à recopier tel quel. C'est le moyen le plus fiable d'écrire ces specs ; ne jamais le deviner.
 
 ## Commandes
 

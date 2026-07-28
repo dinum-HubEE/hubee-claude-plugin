@@ -13,6 +13,8 @@ Conventions d'implémentation des modèles ActiveRecord. Le choix « cette logiq
 
 Ordre fixe des sections, chacune introduite par un commentaire `# === … ===`.
 
+> **Seuil — à partir de trois sections distinctes.** En deçà (un modèle de 10 lignes : une association, un enum, deux validations), l'**ordre** suffit : les commentaires de section pèseraient plus lourd que le code qu'ils annoncent. Le seuil vaut par modèle, pas par projet — un projet peut choisir de sectionner partout par cohérence, mais ne doit pas le faire au nom de cette skill.
+
 ```ruby
 class Subscription < ApplicationRecord
   # === Constants ===

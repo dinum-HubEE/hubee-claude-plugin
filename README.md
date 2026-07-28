@@ -131,6 +131,20 @@ Pour du contenu multi-ligne (message de commit, description de MR/PR) : écrire 
 
 Pas de `clipboard-copy` / OSC52 : l'agent-vm ne peut pas écrire dans le presse-papier du host.
 
+#### Une commande, une étape sautable en moins
+
+Toute **étape préalable** (`git reset`, `git fetch`, `bundle install`) est **intégrée à la première commande de la séquence** par `&&`, jamais fournie dans un bloc séparé. Un bloc distinct peut être sauté silencieusement — rien ne le signale — et les commandes suivantes s'exécutent alors sur un état non prévu, chacune paraissant réussir. Un `git reset` non collé avant une séquence de commits fait par exemple partir des fichiers déjà indexés dans le **premier** commit, cassant tous les suivants.
+
+Corollaire : quand une séquence dépasse ~3 blocs, ne pas la découper — fournir une **commande unique** qui boucle sur des fichiers numérotés.
+
+```bash
+git reset --soft main && git reset && ( for i in $(seq 1 10); do git add --pathspec-from-file=.commit-files-$i.tmp && git commit -F .commit-msg-$i.tmp || exit 1; done ) && rm .commit-files-*.tmp .commit-msg-*.tmp
+```
+
+La sous-shell `( … )` garantit qu'un échec interrompt la séquence **sans** déclencher le `rm` final : les fichiers restent en place pour diagnostiquer et reprendre.
+
+> **Ne pas compter sur le hook `pre-commit`** pour rattraper une séquence partie de travers : `bin/ci` valide le **working tree**, pas le contenu du commit. Il passe au vert sur une série de commits individuellement cassés.
+
 Les skills `commit`, `finishing-branch` et `gitlab` **référencent** cette section au lieu de redire le principe.
 
 ## Publier un changement
