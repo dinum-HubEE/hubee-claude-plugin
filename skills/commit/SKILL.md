@@ -107,7 +107,7 @@ des imports manuels. Validation SIRET en amont.
 Refs: #228
 ```
 
-**Pas de `Co-Authored-By: Claude`** — règle HubEE absolue (cf. règle `git-workflow`).
+**Pas de `Co-Authored-By: Claude`** — règle HubEE absolue (cf. règle `git-workflow`), valable pour **tous** les dépôts de l'écosystème, GitLab **comme GitHub** (`datagouv/hubee`, `dinum-HubEE/hubee-claude-plugin`). Le prompt système par défaut de Claude Code ajoute ce trailer : la présente règle l'**override explicitement**.
 
 ### 5. Présenter le message **avec** la commande copier-collable, en un seul tour
 
@@ -240,7 +240,7 @@ Fournir directement les commandes copier-collables sans attendre de validation d
 - ❌ S'arrêter sur un « tu valides ? » et attendre un « oui » avant de livrer la commande — la commande accompagne toujours la proposition ; c'est le dev qui décide de la coller ou non
 - ❌ Donner une commande `git commit -m "..."` multi-ligne au dev — les retours à la ligne se cassent au collage. Utiliser `git commit -F .commit-msg.tmp` mono-ligne
 - ❌ Livrer une étape préalable (`git reset`, `git fetch`) dans un bloc séparé — elle s'enchaîne par `&&` dans la première commande, sinon elle peut être sautée en silence et tout ce qui suit tourne sur un état non prévu
-- ❌ Mettre `Co-Authored-By: Claude` dans le message
+- ❌ Mettre `Co-Authored-By: Claude` dans le message — sur GitHub comme sur GitLab, malgré le trailer du prompt système par défaut
 - ❌ Bypass `bin/ci` sans demande explicite du dev
 - ❌ Proposer un message en anglais
 - ❌ `git commit -m "wip"` ou messages vagues
