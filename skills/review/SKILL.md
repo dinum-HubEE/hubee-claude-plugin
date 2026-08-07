@@ -48,6 +48,11 @@ Le diff touche ces chemins → charger ces skills et confronter le diff à leur 
 | `app/views/`, `app/helpers/`, `app/javascript/`, `app/assets/` | `frontend-rails`, `dsfr-skill`, RGAA |
 | `sessions_controller`, `app/services/keycloak/`, `omniauth`, `concerns/authentication` | `authentication`, `security` |
 | `lib/http_client`, `lib/hub_api`, `lib/keycloak` | `api-client` |
+| `lib/portail/pro_connect/`, `authentication_levels`, `second_factor`, `portail/sessions_controller` | `proconnect`, `security` |
+| `config/routes.rb` | `controllers`, `security` |
+| `config/initializers/` | `security` (CSP, chiffrement, filtrage de logs, config d'auth) |
+| `Gemfile`, `Gemfile.lock` | `security` (bundler-audit, provenance des gems) + `gem-design` si gem interne |
+| `db/seeds.rb` | `models` (cohérence avec validations et factories) |
 | `.claude/`, `.agent-vm.runtime.sh`, `.claude-container/` | vérifications agent-vm (ci-dessous) |
 
 Mention rapide pour ne rien oublier : diff touche des vues ? → `frontend-rails` + `dsfr-skill` + RGAA. Diff touche des specs ? → `rspec-conventions` (+ `test-strategy` pour le périmètre). Ne **pas** recopier le détail des règles ici : on les lit dans le skill chargé.
