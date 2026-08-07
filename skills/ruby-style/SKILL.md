@@ -1,6 +1,6 @@
 ---
 name: ruby-style
-description: "Style de code Ruby HubEE (transverse, non lié à un pattern) : nommage, méthodes de classe, résolution des constantes namespacées, error handling (scope du rescue, code mort), fonctions pures de module, réaffectation de variables et chaînage, imbrication de blocks, temps et fuseaux, linting StandardRB. À utiliser pour écrire ou relire n'importe quel code Ruby/Rails. Pour choisir QUEL pattern écrire, voir la skill choosing-a-pattern."
+description: "Style de code Ruby HubEE (transverse, non lié à un pattern) : nommage, méthodes de classe, commentaires, résolution des constantes namespacées, error handling (scope du rescue, code mort), fonctions pures de module, réaffectation de variables et chaînage, imbrication de blocks, temps et fuseaux, linting StandardRB. À utiliser pour écrire ou relire n'importe quel code Ruby/Rails. Pour choisir QUEL pattern écrire, voir la skill choosing-a-pattern."
 globs:
   - "app/**/*.rb"
   - "lib/**/*.rb"
@@ -45,6 +45,45 @@ class Foo
     def default_options = {}
   end
 end
+```
+
+## Commentaires
+
+Un commentaire ne se justifie que dans deux cas :
+
+1. **« À quoi ça sert »** — sur les parties **complexes** uniquement (algorithme non trivial, protocole, invariant subtil). Jamais sur du code évident : un commentaire qui paraphrase la ligne qu'il annote est du bruit à supprimer.
+2. **Le pourquoi d'une décision** qui risquerait de ne plus être comprise plus tard : piège de sécurité, contrainte externe non évidente (comportement d'un fournisseur, bug d'une gem), écart assumé à une règle du projet.
+
+**Format : 1 ligne par élément, 2 lignes au maximum pour un piège de sécurité.** Le commentaire dit *le pourquoi seulement* — le *quoi* est dans le code, le *contexte historique* dans le message de commit.
+
+Hors périmètre : les commentaires **structurels** normés ailleurs — sections `# === … ===` d'un modèle, commentaires CSS documentant un pattern réutilisable (skill `frontend-rails`).
+
+### Anti-patterns
+
+- ❌ **Récit d'historique** : « avant on faisait X », « suite à la migration Y » → ce contexte va dans le message de commit, pas dans le code.
+- ❌ **Comparaison d'outils** : « contrairement à OmniAuth… », « la gem Z ferait… » → message de commit.
+- ❌ **Redite du diff** : commentaire qui décrit le changement au lieu du code résultant.
+- ❌ **Pavé multi-paragraphes** : si l'explication dépasse 2 lignes, elle appartient au message de commit, à la description de MR/PR ou à `docs/`.
+- ❌ **Paraphrase du code évident** : `# incrémente le compteur` au-dessus de `count += 1`.
+
+### Étalon
+
+```ruby
+# ✅ pourquoi d'une décision, 1 ligne
+# Suggestions seulement : c'est l'acr du jeton au retour qui fait foi.
+**{login_hint:, siret_hint:}.compact
+
+# ✅ piège de sécurité, 2 lignes
+# Imposé, jamais lu dans le jeton : un HS256 signé avec la clé
+# publique passerait sinon.
+ALLOWED_ALGORITHMS = [:RS256].freeze
+
+# ❌ récit d'historique + comparaison d'outils + pavé
+# Historiquement nous passions par OmniAuth, mais la stratégie ne
+# permettait pas de contrôler les claims. Contrairement à la gem
+# omniauth_openid_connect qui choisit l'algorithme toute seule, il
+# faut ici lister les algorithmes acceptés et décoder nous-mêmes.
+ALLOWED_ALGORITHMS = [:RS256].freeze
 ```
 
 ## Résolution des constantes namespacées
