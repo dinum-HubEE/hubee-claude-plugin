@@ -15,6 +15,8 @@ La logique métier multi-étapes utilise la gem [interactor](https://github.com/
 
 Un organizer orchestre des interactors atomiques, exécutés dans l'ordre. Il ne contient aucune logique lui-même.
 
+> **Règle validée en pratique — ne pas assouplir.** « Toujours un organizer **et** un interactor, même pour un seul interactor » a guidé les refactors de la chaîne d'authentification ProConnect (`datagouv/hubee`) sans qu'aucune dérogation ne soit nécessaire.
+
 ```ruby
 # app/interactors/data_packages/transmit.rb
 module DataPackages

@@ -187,6 +187,8 @@ end
 
 ### `expect` plutôt que `allow`
 
+> **Règle validée en pratique — ne pas assouplir.** Elle a fait détecter un échange de code OIDC stubbé en `allow` qui masquait le contrat réel (parcours d'authentification ProConnect, `datagouv/hubee`).
+
 `allow` autorise un appel sans garantir qu'il a lieu. Si le stub est important, c'est que l'appel a lieu — donc `expect` :
 
 - `expect(...).to receive(...)` → l'appel doit avoir lieu
