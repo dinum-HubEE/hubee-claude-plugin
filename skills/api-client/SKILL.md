@@ -5,6 +5,7 @@ globs:
   - "lib/http_client.rb"
   - "lib/hub_api/**/*.rb"
   - "lib/keycloak/{client,user}.rb"
+  - "lib/portail/**/*.rb"
   - "spec/support/*_helpers.rb"
 ---
 
@@ -43,6 +44,12 @@ spec/
 ## Couche 1 : Module HttpClient
 
 Module unique partagé par tous les clients. Net::HTTP natif, pas de gem externe.
+
+### Exception : protocoles standardisés (OIDC, SAML, JWT…)
+
+La règle « Net::HTTP natif, pas de gem externe » vaut pour les **APIs REST propriétaires** (HubeeV1, Keycloak admin…). Elle ne s'applique **pas** aux protocoles cryptographiques standardisés : pour OIDC, SAML ou la vérification JWT/JWKS, utiliser la **gem de référence** du protocole (`openid_connect`, `json-jwt`…) — on ne réécrit pas de la crypto ni une machine à états de protocole sur Net::HTTP.
+
+Le code custom se limite alors aux **écarts du fournisseur** par rapport au standard (ex. ProConnect : userinfo renvoyé en JWT signé là où la gem attend du JSON, paramètres `claims`/`acr_values` spécifiques). Référence : `lib/portail/pro_connect/client.rb` dans le dépôt `datagouv/hubee`, et la skill `proconnect` pour les écarts eux-mêmes.
 
 ### Contrat
 
