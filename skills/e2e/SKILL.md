@@ -1,15 +1,34 @@
 ---
 name: e2e
-description: End-to-end testing with system specs. Use for user flow testing and integration validation.
+description: "Tests end-to-end des parcours utilisateur avec Capybara : system specs RSpec ou features Cucumber selon le projet (drivers, tag @javascript, simulation d'un fournisseur externe). À utiliser pour écrire ou relire un test de parcours de bout en bout."
 ---
 
 # E2E Testing Skill
 
 ## Purpose
 
-Create comprehensive end-to-end tests using RSpec system specs with Capybara.
+Couvrir les parcours utilisateur de bout en bout avec Capybara.
 
-## Setup
+Selon le projet, la couche E2E est en **system specs RSpec** (`spec/system/`) ou en **features Cucumber** (`features/`) — vérifier `bin/ci`, qui nomme la ou les commandes de la step E2E. La philosophie est la même des deux côtés : **rack_test par défaut** (rapide, sans navigateur), navigateur réel seulement quand le JavaScript compte.
+
+## Cucumber comme couche E2E
+
+Certains projets (portail V2, `datagouv/hubee`) portent leur E2E en Cucumber, exécuté par `bin/ci` comme step distincte (`bundle exec cucumber`).
+
+### Drivers
+
+- Défaut : `rack_test`. Les scénarios qui exigent un vrai navigateur portent le tag **`@javascript`** — capybara/cucumber bascule seul sur `Capybara.javascript_driver` (`:selenium_chrome_headless`).
+- **Piège Selenium Manager sur Linux ARM** : Selenium Manager n'a pas de binaire Linux ARM. Quand un chromedriver système existe (`/usr/bin/chromedriver`), pointer explicitement dessus via `Selenium::WebDriver::Service.chrome(path:)` (et `options.binary` vers le chromium système) ; ailleurs, laisser la résolution automatique. Référence : `features/support/capybara.rb`.
+
+### Support
+
+`features/support/world.rb` : `World(FactoryBot::Syntax::Methods)` + `require "cucumber/rspec/doubles"` — les stubs rspec-mocks posés dans les steps sont **valables** parce que l'app tourne dans le même process que les scénarios : un stub de classe est vu par le serveur Capybara.
+
+### Simuler un fournisseur externe : boucler sur son propre callback
+
+Pour un parcours qui traverse un fournisseur externe (OIDC…), ne pas mocker le navigateur ni monter un faux serveur : stubber le client pour que **l'URL d'autorisation boucle sur notre propre callback** avec le state attendu. Le navigateur joue alors toute la chaîne de redirections, **sans réseau**. Référence : `features/step_definitions/portail_steps.rb` (ProConnect simulé).
+
+## Setup des system specs RSpec
 
 Le driver par défaut pour les system specs est `:rack_test` (rapide, sans navigateur). Utiliser `:selenium_chrome_headless` uniquement pour les specs qui nécessitent du JavaScript via la metadata `js: true`.
 
