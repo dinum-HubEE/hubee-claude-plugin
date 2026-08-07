@@ -15,6 +15,7 @@
     "tdd",
     "rspec",
     "keycloak",
+    "proconnect",
     "gitlab",
     "dinum"
   ]

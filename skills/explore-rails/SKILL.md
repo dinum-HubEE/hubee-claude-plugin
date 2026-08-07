@@ -163,6 +163,7 @@ Beaucoup de questions sur l'architecture sont **déjà répondues dans les skill
 | Question | Skill |
 |---|---|
 | "Comment marche l'auth Keycloak ?" | `authentication` |
+| "Comment marche l'auth ProConnect (niveaux acr, MFA) ?" | `proconnect` |
 | "Comment écrire un service appelant une API externe ?" | `api-client` |
 | "Comment ajouter du Turbo / Stimulus ?" | `hotwire` |
 | "Comment écrire une spec X ?" | `rspec-conventions` |

@@ -62,10 +62,11 @@ Dans `<projet>/.claude/settings.json` :
 |---|---|
 | `api-client` | Consommer l'API HubeeV1 ou un service externe (HTTP client) |
 | `architecture` | Décisions de design Rails (database schema, service boundaries) |
-| `authentication` | Keycloak OIDC (login, logout, sessions, tokens) |
+| `authentication` | Keycloak OIDC (login, logout, sessions, tokens) — portail admin |
+| `proconnect` | ProConnect OIDC (niveaux acr / MFA, vérification des jetons, pièges fournisseur) — portail V2 |
 | `build-fix` | Erreurs CI / build / tests Rails (override `superpowers:systematic-debugging`) |
 | `commit` | Préparer un commit (Conventional Commits FR + bin/ci + clipboard handoff) |
-| `e2e` | Tests system specs (Capybara/Selenium) + parcours RGAA |
+| `e2e` | Tests E2E de parcours (system specs RSpec **ou** features Cucumber, Capybara/Selenium) + parcours RGAA |
 | `execute` | Exécuter un plan step-by-step (override `superpowers:executing-plans`) |
 | `explore-rails` | Naviguer un projet Rails route → controller → service → model → view |
 | `finishing-branch` | Finaliser une branche, préparer la MR GitLab (override `superpowers:finishing-a-development-branch`) |
