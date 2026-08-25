@@ -79,7 +79,7 @@ Dans `<projet>/.claude/settings.json` :
 | `choosing-a-pattern` | **Choix de pattern** : quel pattern écrire pour quel besoin |
 | `models` | Conventions des modèles ActiveRecord (structure standard, validations à liste fermée, scopes) |
 | `controllers` | Conventions des controllers RESTful (actions, strong params, Pundit, réponses) |
-| `ruby-style` | Style de code Ruby transverse (nommage, chaînage, blocks, error handling, temps, linting StandardRB) |
+| `ruby-style` | Style de code Ruby transverse (nommage, commentaires, chaînage, blocks, error handling, temps, linting StandardRB) |
 | `interactors` | Logique métier multi-étapes (gem interactor) : nommage, partage, rollback/ordonnancement, rejeu, specs |
 | `query-objects` | Requête complexe (filtres conditionnels, recherche, jointures) dans `app/queries/` |
 | `form-objects` | Objet formulaire : ce qui pilote l'opération, champs non soumis (rendu : `frontend-rails`) |
