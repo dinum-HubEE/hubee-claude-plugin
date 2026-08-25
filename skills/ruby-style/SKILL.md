@@ -49,16 +49,16 @@ end
 
 ## Commentaires
 
+**Aussi court que l'idée le permet** : dire le pourquoi, une fois, puis s'arrêter. Le *quoi* est dans le code, le *contexte historique* dans le message de commit.
+
 Un commentaire ne se justifie que dans deux cas :
 
-1. **« À quoi ça sert »** — sur les parties **complexes** uniquement (algorithme non trivial, protocole, invariant subtil). Jamais sur du code évident : un commentaire qui paraphrase la ligne qu'il annote est du bruit à supprimer.
+1. **« À quoi ça sert »** — quand le code implémente un **protocole ou un format externe** dont la règle ne se lit pas dans la méthode, ou quand l'**invariant tenu déborde la méthode qui le tient** (l'appelant doit en faire quelque chose). Jamais sur du code évident : un commentaire qui paraphrase la ligne qu'il annote est du bruit à supprimer.
 2. **Le pourquoi d'une décision** qui risquerait de ne plus être comprise plus tard : piège de sécurité, contrainte externe non évidente (comportement d'un fournisseur, bug d'une gem), écart assumé à une règle du projet.
-
-**Aussi court que l'idée le permet** — pas de quota de lignes, mais l'intention de rester bref : dire le pourquoi, une fois, puis s'arrêter. Le *quoi* est dans le code, le *contexte historique* dans le message de commit.
 
 Hors périmètre : les commentaires **structurels** normés ailleurs — sections `# === … ===` d'un modèle, commentaires CSS documentant un pattern réutilisable (skill `frontend-rails`).
 
-### Anti-patterns
+### Anti-patterns de commentaire
 
 - ❌ **Récit d'historique** : « avant on faisait X », « suite à la migration Y » → ce contexte va dans le message de commit, pas dans le code.
 - ❌ **Comparaison d'outils** : « contrairement à OmniAuth… », « la gem Z ferait… » → message de commit.
@@ -69,11 +69,26 @@ Hors périmètre : les commentaires **structurels** normés ailleurs — section
 ### Étalon
 
 ```ruby
-# ✅ le pourquoi d'une décision, dit une fois
-# Suggestions seulement : c'est l'acr du jeton au retour qui fait foi.
-**{login_hint:, siret_hint:}.compact
+# ✅ cas 1 : protocole externe — la règle ne se lit pas dans la méthode
+# L'exigence MFA se demande par `claims`, `essential: true` : ProConnect répond
+# par une erreur plutôt que par un niveau plus faible.
+def requested_claims(step_up)
+  id_token = {amr: {essential: true}}
+  id_token[:acr] = {essential: true, values: demanded(step_up)} if step_up
 
-# ✅ piège de sécurité : ce qui casserait sans ce choix
+  {id_token:}.to_json
+end
+
+# ✅ cas 2 : le pourquoi d'une décision, dit une fois
+url = client.authorization_uri(
+  scope: SCOPES, state:, nonce:,
+  claims: requested_claims(step_up),
+  # Suggestions seulement : c'est l'acr (niveau d'authentification obtenu) du
+  # jeton au retour qui fait foi.
+  **{login_hint:, siret_hint:}.compact
+)
+
+# ✅ cas 2 : piège de sécurité — ce qui casserait sans ce choix
 # Imposé, jamais lu dans le jeton : un HS256 signé avec la clé
 # publique passerait sinon.
 ALLOWED_ALGORITHMS = [:RS256].freeze
