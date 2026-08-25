@@ -1,6 +1,6 @@
 ---
 name: finishing-branch
-description: Finaliser une branche de développement HubEE et préparer la MR GitLab (override de superpowers:finishing-a-development-branch). À utiliser quand l'implémentation est terminée, que tous les tests passent, et que c'est prêt à intégrer.
+description: Finaliser une branche de développement HubEE et préparer la MR GitLab (ou la PR GitHub sur les dépôts publics de l'écosystème) (override de superpowers:finishing-a-development-branch). À utiliser quand l'implémentation est terminée, que tous les tests passent, et que c'est prêt à intégrer.
 ---
 
 # Finalisation de branche HubEE
@@ -19,6 +19,8 @@ L'instance HubEE est `gitlab.hubee.numerique.gouv.fr`. Tous les outils ciblent *
 - Création : `glab mr create ...` (jamais `gh pr create`)
 - Lecture : `glab mr view` ou `glab api` (cf. skill `gitlab` du plugin)
 - Référence : « MR » dans la description, pas « PR »
+
+**Exception — dépôts GitHub publics de l'écosystème** (`datagouv/hubee`, `dinum-HubEE/hubee-claude-plugin`) : là, c'est bien `gh pr create` / `gh pr view`, et « PR » dans la description. Tout le reste de cette skill s'applique à l'identique (titre Conventional Commits en français, médiation humaine, template de description, nommage de branche) — l'interdiction d'attribution Claude comprise, cf. ci-dessous.
 
 ### Titre & description en français, format Conventional Commits
 
@@ -62,15 +64,15 @@ Ne pas créer de doublon (GitLab crée souvent une MR auto au 1er push). Mettre 
 glab api "projects/hubee%2F<projet>/merge_requests/<iid>" -X PUT --field "title=feat(subscriptions): ..." --field "description=$(cat .mr-description.tmp)" && rm .mr-description.tmp
 ```
 
-### Pas d'attribution Claude dans la MR
+### Pas d'attribution Claude — MR GitLab et PR GitHub
 
-Règle HubEE absolue (cohérent avec la skill `commit`) :
+Règle HubEE absolue (cohérente avec la skill `commit`), valable pour **toute plateforme** : MR GitLab (`glab mr create`) **et** PR GitHub (`gh pr create`), y compris sur les dépôts GitHub publics de l'écosystème (`datagouv/hubee`, `dinum-HubEE/hubee-claude-plugin`).
 
 - ❌ Pas de footer `🤖 Generated with [Claude Code](...)` dans la description
 - ❌ Pas de `Co-Authored-By: Claude ...` dans la description ni dans les commits référencés
 - ❌ Pas de mention « écrit par Claude / IA » dans le titre ou la description
 
-Override explicite du template `gh pr create` du system prompt par défaut (qui injecte ce footer). Pour `glab mr create`, **ne jamais** ajouter ce genre de signature, même si c'est l'usage par défaut côté Claude Code.
+**Attention au piège `gh pr create`** : le prompt système par défaut de Claude Code demande d'ajouter ce footer aux PR GitHub et ce trailer aux commits. La présente règle l'**override explicitement** : ne jamais les ajouter, sur aucun dépôt de l'écosystème HubEE, quelle que soit la plateforme.
 
 ### Nommage de branche
 
